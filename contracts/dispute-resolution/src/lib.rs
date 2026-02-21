@@ -58,12 +58,18 @@ pub enum DataKey {
     ArbitratorApproved(Address),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 34_560;
+const PERSISTENT_BUMP_AMOUNT: u32 = 259_200;
+
 #[contract]
 pub struct DisputeResolutionContract;
 
 #[contractimpl]
 impl DisputeResolutionContract {
     pub fn initialize(env: Env, admin: Address, token: Address, filing_fee: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -75,12 +81,15 @@ impl DisputeResolutionContract {
     }
 
     pub fn authorize_arbitrator(env: Env, admin: Address, arbitrator: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
             panic!("unauthorized");
         }
-        env.storage().persistent().set(&DataKey::ArbitratorApproved(arbitrator), &true);
+        let _ttl_key = DataKey::ArbitratorApproved(arbitrator);
+        env.storage().persistent().set(&_ttl_key, &true);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn file_dispute(
@@ -92,6 +101,7 @@ impl DisputeResolutionContract {
         description: String,
         evidence_hash: String,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         claimant.require_auth();
 
         // Collect filing fee
@@ -124,7 +134,9 @@ impl DisputeResolutionContract {
             arbitrator: None,
         };
 
-        env.storage().persistent().set(&DataKey::Dispute(dispute_id), &dispute);
+        let _ttl_key = DataKey::Dispute(dispute_id);
+        env.storage().persistent().set(&_ttl_key, &dispute);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage().instance().set(&DataKey::DisputeCounter, &dispute_id);
 
         env.events().publish(
@@ -136,6 +148,7 @@ impl DisputeResolutionContract {
     }
 
     pub fn assign_arbitrator(env: Env, admin: Address, dispute_id: u64, arbitrator: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -160,7 +173,9 @@ impl DisputeResolutionContract {
 
         dispute.arbitrator = Some(arbitrator);
         dispute.status = DisputeStatus::UnderReview;
-        env.storage().persistent().set(&DataKey::Dispute(dispute_id), &dispute);
+        let _ttl_key = DataKey::Dispute(dispute_id);
+        env.storage().persistent().set(&_ttl_key, &dispute);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn resolve_dispute(
@@ -170,6 +185,7 @@ impl DisputeResolutionContract {
         outcome: DisputeOutcome,
         notes: String,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         arbitrator.require_auth();
 
         let mut dispute: Dispute = env
@@ -187,7 +203,9 @@ impl DisputeResolutionContract {
         dispute.status = DisputeStatus::Resolved;
         dispute.resolved_at = Some(env.ledger().timestamp());
 
-        env.storage().persistent().set(&DataKey::Dispute(dispute_id), &dispute);
+        let _ttl_key = DataKey::Dispute(dispute_id);
+        env.storage().persistent().set(&_ttl_key, &dispute);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("dispute"), symbol_short!("resolved")),
@@ -196,10 +214,12 @@ impl DisputeResolutionContract {
     }
 
     pub fn get_dispute(env: Env, dispute_id: u64) -> Option<Dispute> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Dispute(dispute_id))
     }
 
     pub fn get_dispute_count(env: Env) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().instance().get(&DataKey::DisputeCounter).unwrap_or(0)
     }
 }

@@ -50,12 +50,18 @@ pub enum DataKey {
     BorrowCount,
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct LiquidityPoolContract;
 
 #[contractimpl]
 impl LiquidityPoolContract {
     pub fn initialize(env: Env, admin: Address, token: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -74,6 +80,7 @@ impl LiquidityPoolContract {
     }
 
     pub fn deposit(env: Env, provider: Address, amount: i128) -> i128 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         provider.require_auth();
 
         if amount <= 0 {
@@ -113,7 +120,9 @@ impl LiquidityPoolContract {
 
         position.deposited += amount;
         position.shares += shares;
-        env.storage().persistent().set(&DataKey::Provider(provider.clone()), &position);
+        let _ttl_key = DataKey::Provider(provider.clone());
+        env.storage().persistent().set(&_ttl_key, &position);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("pool"), symbol_short!("deposit")),
@@ -124,6 +133,7 @@ impl LiquidityPoolContract {
     }
 
     pub fn withdraw(env: Env, provider: Address, shares: i128) -> i128 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         provider.require_auth();
 
         let mut position: ProviderPosition = env
@@ -153,7 +163,9 @@ impl LiquidityPoolContract {
 
         position.shares -= shares;
         position.deposited = position.deposited.saturating_sub(amount);
-        env.storage().persistent().set(&DataKey::Provider(provider.clone()), &position);
+        let _ttl_key = DataKey::Provider(provider.clone());
+        env.storage().persistent().set(&_ttl_key, &position);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let token_addr: Address = env.storage().instance().get(&DataKey::TokenAddress).unwrap();
         let token_client = token::Client::new(&env, &token_addr);
@@ -163,6 +175,7 @@ impl LiquidityPoolContract {
     }
 
     pub fn borrow(env: Env, borrower: Address, campaign_id: u64, amount: i128, duration_secs: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         borrower.require_auth();
 
         let mut pool: PoolState = env.storage().instance().get(&DataKey::PoolState).unwrap();
@@ -191,7 +204,9 @@ impl LiquidityPoolContract {
             due_at: now + duration_secs,
         };
 
-        env.storage().persistent().set(&DataKey::Borrow(campaign_id), &borrow);
+        let _ttl_key = DataKey::Borrow(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &borrow);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let token_addr: Address = env.storage().instance().get(&DataKey::TokenAddress).unwrap();
         let token_client = token::Client::new(&env, &token_addr);
@@ -199,6 +214,7 @@ impl LiquidityPoolContract {
     }
 
     pub fn repay(env: Env, borrower: Address, campaign_id: u64, amount: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         borrower.require_auth();
 
         let borrow: BorrowPosition = env
@@ -228,14 +244,17 @@ impl LiquidityPoolContract {
     }
 
     pub fn get_pool_state(env: Env) -> PoolState {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().instance().get(&DataKey::PoolState).expect("not initialized")
     }
 
     pub fn get_provider_position(env: Env, provider: Address) -> Option<ProviderPosition> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Provider(provider))
     }
 
     pub fn get_borrow(env: Env, campaign_id: u64) -> Option<BorrowPosition> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Borrow(campaign_id))
     }
 }

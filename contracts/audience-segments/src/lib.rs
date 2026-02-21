@@ -39,12 +39,18 @@ pub enum DataKey {
     MemberCount(u64),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 34_560;
+const PERSISTENT_BUMP_AMOUNT: u32 = 259_200;
+
 #[contract]
 pub struct AudienceSegmentsContract;
 
 #[contractimpl]
 impl AudienceSegmentsContract {
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -61,6 +67,7 @@ impl AudienceSegmentsContract {
         criteria_hash: String,
         is_public: bool,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         creator.require_auth();
 
         let counter: u64 = env.storage().instance().get(&DataKey::SegmentCounter).unwrap_or(0);
@@ -78,7 +85,9 @@ impl AudienceSegmentsContract {
             last_updated: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(&DataKey::Segment(segment_id), &segment);
+        let _ttl_key = DataKey::Segment(segment_id);
+        env.storage().persistent().set(&_ttl_key, &segment);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage().instance().set(&DataKey::SegmentCounter, &segment_id);
 
         env.events().publish(
@@ -90,6 +99,7 @@ impl AudienceSegmentsContract {
     }
 
     pub fn add_member(env: Env, admin: Address, segment_id: u64, member: Address, score: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
 
@@ -115,13 +125,18 @@ impl AudienceSegmentsContract {
             score,
         };
 
-        env.storage().persistent().set(&DataKey::Membership(segment_id, member), &membership);
+        let _ttl_key = DataKey::Membership(segment_id, member);
+        env.storage().persistent().set(&_ttl_key, &membership);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let count: u64 = env.storage().persistent().get(&DataKey::MemberCount(segment_id)).unwrap_or(0);
-        env.storage().persistent().set(&DataKey::MemberCount(segment_id), &(count + 1));
+        let _ttl_key = DataKey::MemberCount(segment_id);
+        env.storage().persistent().set(&_ttl_key, &(count + 1));
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn remove_member(env: Env, admin: Address, segment_id: u64, member: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
 
@@ -139,27 +154,34 @@ impl AudienceSegmentsContract {
 
         let count: u64 = env.storage().persistent().get(&DataKey::MemberCount(segment_id)).unwrap_or(0);
         if count > 0 {
-            env.storage().persistent().set(&DataKey::MemberCount(segment_id), &(count - 1));
+            let _ttl_key = DataKey::MemberCount(segment_id);
+            env.storage().persistent().set(&_ttl_key, &(count - 1));
+            env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         }
     }
 
     pub fn is_member(env: Env, segment_id: u64, member: Address) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().has(&DataKey::Membership(segment_id, member))
     }
 
     pub fn get_segment(env: Env, segment_id: u64) -> Option<Segment> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Segment(segment_id))
     }
 
     pub fn get_membership(env: Env, segment_id: u64, member: Address) -> Option<SegmentMembership> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Membership(segment_id, member))
     }
 
     pub fn get_segment_count(env: Env) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().instance().get(&DataKey::SegmentCounter).unwrap_or(0)
     }
 
     pub fn get_member_count(env: Env, segment_id: u64) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::MemberCount(segment_id)).unwrap_or(0)
     }
 }

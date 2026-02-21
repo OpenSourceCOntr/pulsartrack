@@ -53,12 +53,18 @@ pub enum DataKey {
     OptLogCount(u64),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct BudgetOptimizerContract;
 
 #[contractimpl]
 impl BudgetOptimizerContract {
     pub fn initialize(env: Env, admin: Address, oracle: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -77,6 +83,7 @@ impl BudgetOptimizerContract {
         target_cpa: i128,
         target_ctr: u32,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         advertiser.require_auth();
 
         if daily_budget > total_budget {
@@ -96,7 +103,9 @@ impl BudgetOptimizerContract {
             last_optimized: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(&DataKey::Allocation(campaign_id), &allocation);
+        let _ttl_key = DataKey::Allocation(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &allocation);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn optimize_budget(
@@ -106,6 +115,7 @@ impl BudgetOptimizerContract {
         new_daily_budget: i128,
         reason: String,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         oracle.require_auth();
         let stored_oracle: Address = env.storage().instance().get(&DataKey::OracleAddress).unwrap();
         if oracle != stored_oracle {
@@ -128,7 +138,9 @@ impl BudgetOptimizerContract {
         allocation.hourly_budget = capped_daily / 24;
         allocation.last_optimized = env.ledger().timestamp();
 
-        env.storage().persistent().set(&DataKey::Allocation(campaign_id), &allocation);
+        let _ttl_key = DataKey::Allocation(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &allocation);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         // Log the optimization
         let count: u32 = env
@@ -145,8 +157,12 @@ impl BudgetOptimizerContract {
             optimized_at: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(&DataKey::OptLog(campaign_id, count), &log);
-        env.storage().persistent().set(&DataKey::OptLogCount(campaign_id), &(count + 1));
+        let _ttl_key = DataKey::OptLog(campaign_id, count);
+        env.storage().persistent().set(&_ttl_key, &log);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::OptLogCount(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &(count + 1));
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("budget"), symbol_short!("optimized")),
@@ -155,6 +171,7 @@ impl BudgetOptimizerContract {
     }
 
     pub fn record_spend(env: Env, admin: Address, campaign_id: u64, amount: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
 
         let mut allocation: BudgetAllocation = env
@@ -170,14 +187,18 @@ impl BudgetOptimizerContract {
         let hour = env.ledger().timestamp() / 86_400;
         let _ = hour; // Could be used for daily tracking
 
-        env.storage().persistent().set(&DataKey::Allocation(campaign_id), &allocation);
+        let _ttl_key = DataKey::Allocation(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &allocation);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_allocation(env: Env, campaign_id: u64) -> Option<BudgetAllocation> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Allocation(campaign_id))
     }
 
     pub fn can_spend(env: Env, campaign_id: u64, amount: i128) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(alloc) = env.storage().persistent().get::<DataKey, BudgetAllocation>(&DataKey::Allocation(campaign_id)) {
             alloc.spent_today + amount <= alloc.daily_budget
                 && alloc.spent_total + amount <= alloc.total_budget

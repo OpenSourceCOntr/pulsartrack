@@ -45,12 +45,18 @@ pub enum DataKey {
     TxApproval(u64, Address),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct MultisigTreasuryContract;
 
 #[contractimpl]
 impl MultisigTreasuryContract {
     pub fn initialize(env: Env, admin: Address, initial_signers: Vec<Address>, required: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -75,6 +81,7 @@ impl MultisigTreasuryContract {
         description: String,
         expires_in: u64,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         proposer.require_auth();
 
         let signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
@@ -108,7 +115,9 @@ impl MultisigTreasuryContract {
             executed_at: None,
         };
 
-        env.storage().persistent().set(&DataKey::Tx(tx_id), &tx);
+        let _ttl_key = DataKey::Tx(tx_id);
+        env.storage().persistent().set(&_ttl_key, &tx);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage().instance().set(&DataKey::TxCounter, &tx_id);
 
         env.events().publish(
@@ -120,6 +129,7 @@ impl MultisigTreasuryContract {
     }
 
     pub fn approve_transaction(env: Env, signer: Address, tx_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         signer.require_auth();
 
         let signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
@@ -143,21 +153,28 @@ impl MultisigTreasuryContract {
 
         if env.ledger().timestamp() > tx.expires_at {
             tx.status = TxStatus::Expired;
-            env.storage().persistent().set(&DataKey::Tx(tx_id), &tx);
+            let _ttl_key = DataKey::Tx(tx_id);
+            env.storage().persistent().set(&_ttl_key, &tx);
+            env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
             panic!("tx expired");
         }
 
         tx.approvals += 1;
-        env.storage().persistent().set(&DataKey::TxApproval(tx_id, signer), &true);
+        let _ttl_key = DataKey::TxApproval(tx_id, signer);
+        env.storage().persistent().set(&_ttl_key, &true);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         if tx.approvals >= tx.required_approvals {
             tx.status = TxStatus::Approved;
         }
 
-        env.storage().persistent().set(&DataKey::Tx(tx_id), &tx);
+        let _ttl_key = DataKey::Tx(tx_id);
+        env.storage().persistent().set(&_ttl_key, &tx);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn execute_transaction(env: Env, caller: Address, tx_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         caller.require_auth();
 
         let signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
@@ -184,7 +201,9 @@ impl MultisigTreasuryContract {
 
         tx.status = TxStatus::Executed;
         tx.executed_at = Some(env.ledger().timestamp());
-        env.storage().persistent().set(&DataKey::Tx(tx_id), &tx);
+        let _ttl_key = DataKey::Tx(tx_id);
+        env.storage().persistent().set(&_ttl_key, &tx);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("treasury"), symbol_short!("executed")),
@@ -193,6 +212,7 @@ impl MultisigTreasuryContract {
     }
 
     pub fn reject_transaction(env: Env, signer: Address, tx_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         signer.require_auth();
 
         let signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
@@ -220,14 +240,18 @@ impl MultisigTreasuryContract {
             tx.status = TxStatus::Rejected;
         }
 
-        env.storage().persistent().set(&DataKey::Tx(tx_id), &tx);
+        let _ttl_key = DataKey::Tx(tx_id);
+        env.storage().persistent().set(&_ttl_key, &tx);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_transaction(env: Env, tx_id: u64) -> Option<TreasuryTx> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Tx(tx_id))
     }
 
     pub fn get_signers(env: Env) -> Vec<Address> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().instance().get(&DataKey::Signers).unwrap()
     }
 }

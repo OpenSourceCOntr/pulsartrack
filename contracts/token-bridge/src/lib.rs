@@ -43,12 +43,18 @@ pub enum DataKey {
     RelayerAddress,
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct TokenBridgeContract;
 
 #[contractimpl]
 impl TokenBridgeContract {
     pub fn initialize(env: Env, admin: Address, relayer: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -60,12 +66,15 @@ impl TokenBridgeContract {
     }
 
     pub fn add_supported_chain(env: Env, admin: Address, chain: String, max_daily_limit: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
             panic!("unauthorized");
         }
-        env.storage().persistent().set(&DataKey::SupportedChain(chain), &max_daily_limit);
+        let _ttl_key = DataKey::SupportedChain(chain);
+        env.storage().persistent().set(&_ttl_key, &max_daily_limit);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn deposit_for_bridge(
@@ -76,6 +85,7 @@ impl TokenBridgeContract {
         recipient_chain: String,
         recipient_address: String,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         sender.require_auth();
 
         // Verify chain is supported
@@ -112,7 +122,9 @@ impl TokenBridgeContract {
             tx_hash: None,
         };
 
-        env.storage().persistent().set(&DataKey::Deposit(deposit_id), &deposit);
+        let _ttl_key = DataKey::Deposit(deposit_id);
+        env.storage().persistent().set(&_ttl_key, &deposit);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage().instance().set(&DataKey::DepositCounter, &deposit_id);
 
         env.events().publish(
@@ -129,6 +141,7 @@ impl TokenBridgeContract {
         deposit_id: u64,
         tx_hash: BytesN<32>,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         relayer.require_auth();
         let stored_relayer: Address = env.storage().instance().get(&DataKey::RelayerAddress).unwrap();
         if relayer != stored_relayer {
@@ -149,7 +162,9 @@ impl TokenBridgeContract {
         deposit.completed_at = Some(env.ledger().timestamp());
         deposit.tx_hash = Some(tx_hash);
 
-        env.storage().persistent().set(&DataKey::Deposit(deposit_id), &deposit);
+        let _ttl_key = DataKey::Deposit(deposit_id);
+        env.storage().persistent().set(&_ttl_key, &deposit);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("bridge"), symbol_short!("confirmed")),
@@ -158,6 +173,7 @@ impl TokenBridgeContract {
     }
 
     pub fn refund_deposit(env: Env, admin: Address, deposit_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -179,10 +195,13 @@ impl TokenBridgeContract {
         token_client.transfer(&env.current_contract_address(), &deposit.sender, &total_refund);
 
         deposit.status = BridgeStatus::Refunded;
-        env.storage().persistent().set(&DataKey::Deposit(deposit_id), &deposit);
+        let _ttl_key = DataKey::Deposit(deposit_id);
+        env.storage().persistent().set(&_ttl_key, &deposit);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_deposit(env: Env, deposit_id: u64) -> Option<BridgeDeposit> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Deposit(deposit_id))
     }
 }

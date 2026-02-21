@@ -36,12 +36,18 @@ pub enum DataKey {
     TierBenefits(u32),           // tier -> list of benefit IDs
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct SubscriptionBenefitsContract;
 
 #[contractimpl]
 impl SubscriptionBenefitsContract {
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -57,6 +63,7 @@ impl SubscriptionBenefitsContract {
         description: String,
         min_tier: u32,
     ) -> u32 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -74,13 +81,16 @@ impl SubscriptionBenefitsContract {
             is_active: true,
         };
 
-        env.storage().persistent().set(&DataKey::Benefit(benefit_id), &benefit);
+        let _ttl_key = DataKey::Benefit(benefit_id);
+        env.storage().persistent().set(&_ttl_key, &benefit);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage().instance().set(&DataKey::BenefitCounter, &benefit_id);
 
         benefit_id
     }
 
     pub fn check_benefit_access(env: Env, subscriber: Address, benefit_id: u32, subscriber_tier: u32) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(benefit) = env.storage().persistent().get::<DataKey, Benefit>(&DataKey::Benefit(benefit_id)) {
             benefit.is_active && subscriber_tier >= benefit.min_tier
         } else {
@@ -89,6 +99,7 @@ impl SubscriptionBenefitsContract {
     }
 
     pub fn use_benefit(env: Env, subscriber: Address, benefit_id: u32, subscriber_tier: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         subscriber.require_auth();
 
         if !Self::check_benefit_access(env.clone(), subscriber.clone(), benefit_id, subscriber_tier) {
@@ -119,13 +130,16 @@ impl SubscriptionBenefitsContract {
 
         usage.uses_this_period += 1;
         env.storage().persistent().set(&key, &usage);
+        env.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_benefit(env: Env, benefit_id: u32) -> Option<Benefit> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Benefit(benefit_id))
     }
 
     pub fn get_usage(env: Env, subscriber: Address, benefit_id: u32) -> Option<BenefitUsage> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::BenefitUsage(subscriber, benefit_id))
     }
 }

@@ -41,12 +41,18 @@ pub enum DataKey {
     Refund(u64),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct RefundProcessorContract;
 
 #[contractimpl]
 impl RefundProcessorContract {
     pub fn initialize(env: Env, admin: Address, token: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -64,6 +70,7 @@ impl RefundProcessorContract {
         amount: i128,
         reason: String,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         requester.require_auth();
 
         if amount <= 0 {
@@ -88,13 +95,16 @@ impl RefundProcessorContract {
             resolved_at: None,
         };
 
-        env.storage().persistent().set(&DataKey::Refund(refund_id), &refund);
+        let _ttl_key = DataKey::Refund(refund_id);
+        env.storage().persistent().set(&_ttl_key, &refund);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage().instance().set(&DataKey::RefundCounter, &refund_id);
 
         refund_id
     }
 
     pub fn approve_refund(env: Env, admin: Address, refund_id: u64, approved_amount: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -115,10 +125,13 @@ impl RefundProcessorContract {
         refund.status = RefundStatus::Approved;
         refund.resolved_at = Some(env.ledger().timestamp());
 
-        env.storage().persistent().set(&DataKey::Refund(refund_id), &refund);
+        let _ttl_key = DataKey::Refund(refund_id);
+        env.storage().persistent().set(&_ttl_key, &refund);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn reject_refund(env: Env, admin: Address, refund_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -134,10 +147,13 @@ impl RefundProcessorContract {
         refund.status = RefundStatus::Rejected;
         refund.resolved_at = Some(env.ledger().timestamp());
 
-        env.storage().persistent().set(&DataKey::Refund(refund_id), &refund);
+        let _ttl_key = DataKey::Refund(refund_id);
+        env.storage().persistent().set(&_ttl_key, &refund);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn process_refund(env: Env, refund_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let mut refund: RefundRequest = env
             .storage()
             .persistent()
@@ -156,7 +172,9 @@ impl RefundProcessorContract {
         );
 
         refund.status = RefundStatus::Processed;
-        env.storage().persistent().set(&DataKey::Refund(refund_id), &refund);
+        let _ttl_key = DataKey::Refund(refund_id);
+        env.storage().persistent().set(&_ttl_key, &refund);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("refund"), symbol_short!("processed")),
@@ -165,6 +183,7 @@ impl RefundProcessorContract {
     }
 
     pub fn get_refund(env: Env, refund_id: u64) -> Option<RefundRequest> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Refund(refund_id))
     }
 }

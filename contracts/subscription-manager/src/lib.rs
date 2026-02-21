@@ -53,12 +53,18 @@ pub enum DataKey {
     Subscription(Address),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct SubscriptionManagerContract;
 
 #[contractimpl]
 impl SubscriptionManagerContract {
     pub fn initialize(env: Env, admin: Address, token: Address, treasury: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -78,6 +84,7 @@ impl SubscriptionManagerContract {
         is_annual: bool,
         auto_renew: bool,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         subscriber.require_auth();
 
         let plan: SubscriptionPlan = env
@@ -116,7 +123,9 @@ impl SubscriptionManagerContract {
             impressions_used: 0,
         };
 
-        env.storage().persistent().set(&DataKey::Subscription(subscriber.clone()), &sub);
+        let _ttl_key = DataKey::Subscription(subscriber.clone());
+        env.storage().persistent().set(&_ttl_key, &sub);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("sub"), symbol_short!("subbed")),
@@ -125,6 +134,7 @@ impl SubscriptionManagerContract {
     }
 
     pub fn cancel_subscription(env: Env, subscriber: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         subscriber.require_auth();
 
         let mut sub: Subscription = env
@@ -134,10 +144,13 @@ impl SubscriptionManagerContract {
             .expect("subscription not found");
 
         sub.auto_renew = false;
-        env.storage().persistent().set(&DataKey::Subscription(subscriber), &sub);
+        let _ttl_key = DataKey::Subscription(subscriber);
+        env.storage().persistent().set(&_ttl_key, &sub);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn is_active(env: Env, subscriber: Address) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(sub) = env
             .storage()
             .persistent()
@@ -150,10 +163,12 @@ impl SubscriptionManagerContract {
     }
 
     pub fn get_subscription(env: Env, subscriber: Address) -> Option<Subscription> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Subscription(subscriber))
     }
 
     pub fn get_plan(env: Env, tier: SubscriptionTier) -> Option<SubscriptionPlan> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Plan(tier))
     }
 
@@ -177,7 +192,9 @@ impl SubscriptionManagerContract {
                 analytics_enabled: analytics,
                 api_access: api,
             };
-            env.storage().persistent().set(&DataKey::Plan(tier), &plan);
+            let _ttl_key = DataKey::Plan(tier);
+            env.storage().persistent().set(&_ttl_key, &plan);
+            env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         }
     }
 }

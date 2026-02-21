@@ -42,6 +42,11 @@ pub enum DataKey {
     Entry(u64),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct TimelockExecutorContract;
 
@@ -54,6 +59,7 @@ impl TimelockExecutorContract {
         min_delay_secs: u64,
         max_delay_secs: u64,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -74,6 +80,7 @@ impl TimelockExecutorContract {
         description: String,
         delay_secs: u64,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         proposer.require_auth();
 
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
@@ -107,7 +114,9 @@ impl TimelockExecutorContract {
             executed_at: None,
         };
 
-        env.storage().persistent().set(&DataKey::Entry(entry_id), &entry);
+        let _ttl_key = DataKey::Entry(entry_id);
+        env.storage().persistent().set(&_ttl_key, &entry);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage().instance().set(&DataKey::EntryCounter, &entry_id);
 
         env.events().publish(
@@ -119,6 +128,7 @@ impl TimelockExecutorContract {
     }
 
     pub fn execute(env: Env, executor: Address, entry_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         executor.require_auth();
 
         let stored_executor: Address = env.storage().instance().get(&DataKey::ExecutorAddress).unwrap();
@@ -144,13 +154,17 @@ impl TimelockExecutorContract {
 
         if now > entry.eta + entry.grace_period {
             entry.status = TimelockStatus::Expired;
-            env.storage().persistent().set(&DataKey::Entry(entry_id), &entry);
+            let _ttl_key = DataKey::Entry(entry_id);
+            env.storage().persistent().set(&_ttl_key, &entry);
+            env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
             panic!("grace period expired");
         }
 
         entry.status = TimelockStatus::Executed;
         entry.executed_at = Some(now);
-        env.storage().persistent().set(&DataKey::Entry(entry_id), &entry);
+        let _ttl_key = DataKey::Entry(entry_id);
+        env.storage().persistent().set(&_ttl_key, &entry);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("timelock"), symbol_short!("executed")),
@@ -159,6 +173,7 @@ impl TimelockExecutorContract {
     }
 
     pub fn cancel(env: Env, admin: Address, entry_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -176,14 +191,18 @@ impl TimelockExecutorContract {
         }
 
         entry.status = TimelockStatus::Cancelled;
-        env.storage().persistent().set(&DataKey::Entry(entry_id), &entry);
+        let _ttl_key = DataKey::Entry(entry_id);
+        env.storage().persistent().set(&_ttl_key, &entry);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_entry(env: Env, entry_id: u64) -> Option<TimelockEntry> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Entry(entry_id))
     }
 
     pub fn is_ready(env: Env, entry_id: u64) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(entry) = env.storage().persistent().get::<DataKey, TimelockEntry>(&DataKey::Entry(entry_id)) {
             let now = env.ledger().timestamp();
             entry.status == TimelockStatus::Queued

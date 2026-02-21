@@ -62,6 +62,11 @@ pub enum DataKey {
 // Contract
 // ============================================================
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct FraudPreventionContract;
 
@@ -69,6 +74,7 @@ pub struct FraudPreventionContract;
 impl FraudPreventionContract {
     /// Initialize the contract
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -96,6 +102,7 @@ impl FraudPreventionContract {
         viewer: Address,
         proof_data: Option<BytesN<32>>,
     ) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         // Rate limiting: check viewer hasn't exceeded limit in current period
         let current_period = env.ledger().timestamp() / 3600; // hourly buckets
         let rate_key = DataKey::ViewerRateLimit(viewer.clone(), current_period);
@@ -147,9 +154,13 @@ impl FraudPreventionContract {
             verified,
         };
 
+        let _ttl_key = DataKey::ViewRecord(view_id);
         env.storage()
             .persistent()
-            .set(&DataKey::ViewRecord(view_id), &record);
+            .set(&_ttl_key, &record);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage()
             .temporary()
             .set(&rate_key, &(view_count + 1));
@@ -204,6 +215,7 @@ impl FraudPreventionContract {
 
     /// Flag suspicious publisher activity
     pub fn flag_suspicious(env: Env, publisher: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let key = DataKey::SuspiciousActivity(publisher.clone());
         let mut activity: SuspiciousActivity = env
             .storage()
@@ -231,6 +243,7 @@ impl FraudPreventionContract {
         }
 
         env.storage().persistent().set(&key, &activity);
+        env.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("publisher"), symbol_short!("flagged")),
@@ -240,6 +253,7 @@ impl FraudPreventionContract {
 
     /// Admin: clear suspicious flag
     pub fn clear_flag(env: Env, admin: Address, publisher: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -253,6 +267,7 @@ impl FraudPreventionContract {
 
     /// Admin: update verification threshold
     pub fn set_threshold(env: Env, admin: Address, threshold: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -271,6 +286,7 @@ impl FraudPreventionContract {
     // ============================================================
 
     pub fn get_verification_stats(env: Env, campaign_id: u64) -> VerificationCache {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let current_day = env.ledger().timestamp() / 86_400;
         env.storage()
             .temporary()
@@ -284,12 +300,14 @@ impl FraudPreventionContract {
     }
 
     pub fn get_suspicious_status(env: Env, publisher: Address) -> Option<SuspiciousActivity> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::SuspiciousActivity(publisher))
     }
 
     pub fn is_publisher_suspended(env: Env, publisher: Address) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(activity) = env
             .storage()
             .persistent()
@@ -302,6 +320,7 @@ impl FraudPreventionContract {
     }
 
     pub fn get_total_verifications(env: Env) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .instance()
             .get(&DataKey::VerifyCounter)

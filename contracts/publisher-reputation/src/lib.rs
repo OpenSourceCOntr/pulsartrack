@@ -40,12 +40,18 @@ pub enum DataKey {
     ReviewCount(Address),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct PublisherReputationContract;
 
 #[contractimpl]
 impl PublisherReputationContract {
     pub fn initialize(env: Env, admin: Address, oracle: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -55,6 +61,7 @@ impl PublisherReputationContract {
     }
 
     pub fn init_publisher(env: Env, publisher: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().persistent().has(&DataKey::Reputation(publisher.clone())) {
             panic!("already initialized");
         }
@@ -71,7 +78,9 @@ impl PublisherReputationContract {
             last_updated: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(&DataKey::Reputation(publisher), &score);
+        let _ttl_key = DataKey::Reputation(publisher);
+        env.storage().persistent().set(&_ttl_key, &score);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn submit_review(
@@ -82,6 +91,7 @@ impl PublisherReputationContract {
         positive: bool,
         rating: u32,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         advertiser.require_auth();
 
         if rating < 1 || rating > 5 {
@@ -107,8 +117,12 @@ impl PublisherReputationContract {
             .persistent()
             .get(&DataKey::ReviewCount(publisher.clone()))
             .unwrap_or(0);
-        env.storage().persistent().set(&DataKey::Review(publisher.clone(), count), &review);
-        env.storage().persistent().set(&DataKey::ReviewCount(publisher.clone()), &(count + 1));
+        let _ttl_key = DataKey::Review(publisher.clone(), count);
+        env.storage().persistent().set(&_ttl_key, &review);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::ReviewCount(publisher.clone());
+        env.storage().persistent().set(&_ttl_key, &(count + 1));
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         rep.total_reviews += 1;
         if positive {
@@ -122,10 +136,13 @@ impl PublisherReputationContract {
         }
         rep.last_updated = env.ledger().timestamp();
 
-        env.storage().persistent().set(&DataKey::Reputation(publisher), &rep);
+        let _ttl_key = DataKey::Reputation(publisher);
+        env.storage().persistent().set(&_ttl_key, &rep);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn slash_publisher(env: Env, oracle: Address, publisher: Address, penalty: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         oracle.require_auth();
         let stored_oracle: Address = env.storage().instance().get(&DataKey::ReputationOracle).unwrap();
         if oracle != stored_oracle {
@@ -142,7 +159,9 @@ impl PublisherReputationContract {
         rep.score = rep.score.saturating_sub(penalty);
         rep.last_updated = env.ledger().timestamp();
 
-        env.storage().persistent().set(&DataKey::Reputation(publisher.clone()), &rep);
+        let _ttl_key = DataKey::Reputation(publisher.clone());
+        env.storage().persistent().set(&_ttl_key, &rep);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("publisher"), symbol_short!("slashed")),
@@ -151,6 +170,7 @@ impl PublisherReputationContract {
     }
 
     pub fn update_uptime(env: Env, oracle: Address, publisher: Address, uptime: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         oracle.require_auth();
         let stored_oracle: Address = env.storage().instance().get(&DataKey::ReputationOracle).unwrap();
         if oracle != stored_oracle {
@@ -173,18 +193,23 @@ impl PublisherReputationContract {
         rep.score = (rep.score + uptime_weight).min(1000);
         rep.last_updated = env.ledger().timestamp();
 
-        env.storage().persistent().set(&DataKey::Reputation(publisher), &rep);
+        let _ttl_key = DataKey::Reputation(publisher);
+        env.storage().persistent().set(&_ttl_key, &rep);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_reputation(env: Env, publisher: Address) -> Option<ReputationScore> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Reputation(publisher))
     }
 
     pub fn get_review(env: Env, publisher: Address, index: u64) -> Option<ReviewEntry> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Review(publisher, index))
     }
 
     pub fn get_review_count(env: Env, publisher: Address) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::ReviewCount(publisher)).unwrap_or(0)
     }
 }

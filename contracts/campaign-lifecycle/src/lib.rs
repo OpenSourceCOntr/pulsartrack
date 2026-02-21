@@ -62,12 +62,18 @@ pub enum DataKey {
     Transition(u64, u32), // campaign_id, transition_index
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct CampaignLifecycleContract;
 
 #[contractimpl]
 impl CampaignLifecycleContract {
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -82,6 +88,7 @@ impl CampaignLifecycleContract {
         campaign_id: u64,
         end_ledger: u32,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         advertiser.require_auth();
 
         let lifecycle = CampaignLifecycle {
@@ -99,9 +106,13 @@ impl CampaignLifecycleContract {
             current_end_ledger: end_ledger,
         };
 
+        let _ttl_key = DataKey::Lifecycle(campaign_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Lifecycle(campaign_id), &lifecycle);
+            .set(&_ttl_key, &lifecycle);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let count: u64 = env
             .storage()
@@ -120,6 +131,7 @@ impl CampaignLifecycleContract {
         new_state: LifecycleState,
         reason: String,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         actor.require_auth();
 
         let mut lifecycle: CampaignLifecycle = env
@@ -169,9 +181,13 @@ impl CampaignLifecycleContract {
         }
         lifecycle.state = new_state.clone();
 
+        let _ttl_key = DataKey::Lifecycle(campaign_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Lifecycle(campaign_id), &lifecycle);
+            .set(&_ttl_key, &lifecycle);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         // Record transition
         let count: u32 = env
@@ -186,12 +202,20 @@ impl CampaignLifecycleContract {
             reason,
             timestamp: now,
         };
+        let _ttl_key = DataKey::Transition(campaign_id, count);
         env.storage()
             .persistent()
-            .set(&DataKey::Transition(campaign_id, count), &transition);
+            .set(&_ttl_key, &transition);
         env.storage()
             .persistent()
-            .set(&DataKey::TransitionCount(campaign_id), &(count + 1));
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::TransitionCount(campaign_id);
+        env.storage()
+            .persistent()
+            .set(&_ttl_key, &(count + 1));
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("lifecycle"), symbol_short!("transit")),
@@ -200,6 +224,7 @@ impl CampaignLifecycleContract {
     }
 
     pub fn extend_campaign(env: Env, advertiser: Address, campaign_id: u64, extra_ledgers: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         advertiser.require_auth();
 
         let mut lifecycle: CampaignLifecycle = env
@@ -215,24 +240,31 @@ impl CampaignLifecycleContract {
         lifecycle.current_end_ledger += extra_ledgers;
         lifecycle.extension_count += 1;
 
+        let _ttl_key = DataKey::Lifecycle(campaign_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Lifecycle(campaign_id), &lifecycle);
+            .set(&_ttl_key, &lifecycle);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_lifecycle(env: Env, campaign_id: u64) -> Option<CampaignLifecycle> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Lifecycle(campaign_id))
     }
 
     pub fn get_transition(env: Env, campaign_id: u64, index: u32) -> Option<StateTransition> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Transition(campaign_id, index))
     }
 
     pub fn get_transition_count(env: Env, campaign_id: u64) -> u32 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::TransitionCount(campaign_id))

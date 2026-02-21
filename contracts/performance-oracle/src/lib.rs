@@ -45,12 +45,18 @@ pub enum DataKey {
     Consensus(u64),             // campaign_id
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct PerformanceOracleContract;
 
 #[contractimpl]
 impl PerformanceOracleContract {
     pub fn initialize(env: Env, admin: Address, min_attesters: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -61,12 +67,15 @@ impl PerformanceOracleContract {
     }
 
     pub fn authorize_attester(env: Env, admin: Address, attester: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
             panic!("unauthorized");
         }
-        env.storage().persistent().set(&DataKey::Attester(attester), &true);
+        let _ttl_key = DataKey::Attester(attester);
+        env.storage().persistent().set(&_ttl_key, &true);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn submit_attestation(
@@ -79,6 +88,7 @@ impl PerformanceOracleContract {
         quality_score: u32,
         data_hash: BytesN<32>,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         attester.require_auth();
 
         let is_auth: bool = env
@@ -107,14 +117,18 @@ impl PerformanceOracleContract {
             ledger_sequence: env.ledger().sequence(),
         };
 
-        env.storage().persistent().set(&DataKey::Attestation(campaign_id, attester), &attestation);
+        let _ttl_key = DataKey::Attestation(campaign_id, attester);
+        env.storage().persistent().set(&_ttl_key, &attestation);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let count: u32 = env
             .storage()
             .persistent()
             .get(&DataKey::AttestationCount(campaign_id))
             .unwrap_or(0);
-        env.storage().persistent().set(&DataKey::AttestationCount(campaign_id), &(count + 1));
+        let _ttl_key = DataKey::AttestationCount(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &(count + 1));
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         // Attempt to build consensus
         Self::_try_build_consensus(&env, campaign_id, impressions, clicks, fraud_rate, quality_score, count + 1);
@@ -126,14 +140,17 @@ impl PerformanceOracleContract {
     }
 
     pub fn get_attestation(env: Env, campaign_id: u64, attester: Address) -> Option<PerformanceAttestation> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Attestation(campaign_id, attester))
     }
 
     pub fn get_consensus(env: Env, campaign_id: u64) -> Option<OracleConsensus> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Consensus(campaign_id))
     }
 
     pub fn get_attestation_count(env: Env, campaign_id: u64) -> u32 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::AttestationCount(campaign_id)).unwrap_or(0)
     }
 
@@ -164,7 +181,9 @@ impl PerformanceOracleContract {
             last_updated: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(&DataKey::Consensus(campaign_id), &consensus);
+        let _ttl_key = DataKey::Consensus(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &consensus);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 }
 

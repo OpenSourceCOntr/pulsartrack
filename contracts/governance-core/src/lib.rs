@@ -45,12 +45,18 @@ pub enum DataKey {
     ActiveProposalCount,
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 34_560;
+const PERSISTENT_BUMP_AMOUNT: u32 = 259_200;
+
 #[contract]
 pub struct GovernanceCoreContract;
 
 #[contractimpl]
 impl GovernanceCoreContract {
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -70,6 +76,7 @@ impl GovernanceCoreContract {
     }
 
     pub fn grant_role(env: Env, admin: Address, account: Address, role: Role, expires_at: Option<u64>) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -83,9 +90,13 @@ impl GovernanceCoreContract {
             expires_at,
         };
 
+        let _ttl_key = DataKey::RoleGrant(account.clone(), role.clone());
         env.storage()
             .persistent()
-            .set(&DataKey::RoleGrant(account.clone(), role.clone()), &grant);
+            .set(&_ttl_key, &grant);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let count: u32 = env
             .storage()
@@ -103,6 +114,7 @@ impl GovernanceCoreContract {
     }
 
     pub fn revoke_role(env: Env, admin: Address, account: Address, role: Role) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -126,6 +138,7 @@ impl GovernanceCoreContract {
     }
 
     pub fn has_role(env: Env, account: Address, role: Role) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(grant) = env
             .storage()
             .persistent()
@@ -142,6 +155,7 @@ impl GovernanceCoreContract {
     }
 
     pub fn update_params(env: Env, admin: Address, params: GovernanceParams) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -151,6 +165,7 @@ impl GovernanceCoreContract {
     }
 
     pub fn get_params(env: Env) -> GovernanceParams {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .instance()
             .get(&DataKey::GovernanceParams)
@@ -158,6 +173,7 @@ impl GovernanceCoreContract {
     }
 
     pub fn get_role_grant(env: Env, account: Address, role: Role) -> Option<RoleGrant> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::RoleGrant(account, role))

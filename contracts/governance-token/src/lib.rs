@@ -49,6 +49,11 @@ pub const MAX_SUPPLY: i128 = 1_000_000_000_000; // 1M tokens with 6 decimals
 // Contract
 // ============================================================
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 34_560;
+const PERSISTENT_BUMP_AMOUNT: u32 = 259_200;
+
 #[contract]
 pub struct GovernanceTokenContract;
 
@@ -56,6 +61,7 @@ pub struct GovernanceTokenContract;
 impl GovernanceTokenContract {
     /// Initialize the PULSAR governance token
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -78,24 +84,28 @@ impl GovernanceTokenContract {
 
     /// Get token name
     pub fn name(env: Env) -> String {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let meta: TokenMetadata = env.storage().instance().get(&DataKey::Metadata).unwrap();
         meta.name
     }
 
     /// Get token symbol
     pub fn symbol(env: Env) -> String {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let meta: TokenMetadata = env.storage().instance().get(&DataKey::Metadata).unwrap();
         meta.symbol
     }
 
     /// Get token decimals
     pub fn decimals(env: Env) -> u32 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let meta: TokenMetadata = env.storage().instance().get(&DataKey::Metadata).unwrap();
         meta.decimals
     }
 
     /// Get balance of an address
     pub fn balance(env: Env, account: Address) -> i128 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Balance(account))
@@ -104,6 +114,7 @@ impl GovernanceTokenContract {
 
     /// Get total supply
     pub fn total_supply(env: Env) -> i128 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .instance()
             .get(&DataKey::TotalSupply)
@@ -112,6 +123,7 @@ impl GovernanceTokenContract {
 
     /// Transfer tokens
     pub fn transfer(env: Env, from: Address, to: Address, amount: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         from.require_auth();
 
         if amount <= 0 {
@@ -128,18 +140,26 @@ impl GovernanceTokenContract {
             panic!("insufficient balance");
         }
 
+        let _ttl_key = DataKey::Balance(from.clone());
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(from.clone()), &(from_balance - amount));
+            .set(&_ttl_key, &(from_balance - amount));
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let to_balance: i128 = env
             .storage()
             .persistent()
             .get(&DataKey::Balance(to.clone()))
             .unwrap_or(0);
+        let _ttl_key = DataKey::Balance(to.clone());
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(to.clone()), &(to_balance + amount));
+            .set(&_ttl_key, &(to_balance + amount));
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("transfer"),),
@@ -149,6 +169,7 @@ impl GovernanceTokenContract {
 
     /// Transfer from (requires prior approval)
     pub fn transfer_from(env: Env, spender: Address, from: Address, to: Address, amount: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         spender.require_auth();
 
         let allowance: i128 = env
@@ -171,33 +192,51 @@ impl GovernanceTokenContract {
             panic!("insufficient balance");
         }
 
+        let _ttl_key = DataKey::Allowance(from.clone(), spender);
         env.storage()
             .persistent()
-            .set(&DataKey::Allowance(from.clone(), spender), &(allowance - amount));
+            .set(&_ttl_key, &(allowance - amount));
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(from.clone()), &(from_balance - amount));
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::Balance(from.clone());
+        env.storage()
+            .persistent()
+            .set(&_ttl_key, &(from_balance - amount));
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let to_balance: i128 = env
             .storage()
             .persistent()
             .get(&DataKey::Balance(to.clone()))
             .unwrap_or(0);
+        let _ttl_key = DataKey::Balance(to.clone());
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(to.clone()), &(to_balance + amount));
+            .set(&_ttl_key, &(to_balance + amount));
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     /// Approve token spending
     pub fn approve(env: Env, owner: Address, spender: Address, amount: i128, expiry: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         owner.require_auth();
+        let _ttl_key = DataKey::Allowance(owner, spender);
         env.storage()
             .persistent()
-            .set(&DataKey::Allowance(owner, spender), &amount);
+            .set(&_ttl_key, &amount);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     /// Get allowance
     pub fn allowance(env: Env, owner: Address, spender: Address) -> i128 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Allowance(owner, spender))
@@ -206,6 +245,7 @@ impl GovernanceTokenContract {
 
     /// Mint new tokens (admin only)
     pub fn mint(env: Env, admin: Address, recipient: Address, amount: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -227,9 +267,13 @@ impl GovernanceTokenContract {
             .persistent()
             .get(&DataKey::Balance(recipient.clone()))
             .unwrap_or(0);
+        let _ttl_key = DataKey::Balance(recipient);
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(recipient), &(balance + amount));
+            .set(&_ttl_key, &(balance + amount));
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage()
             .instance()
             .set(&DataKey::TotalSupply, &(current_supply + amount));
@@ -237,6 +281,7 @@ impl GovernanceTokenContract {
 
     /// Burn tokens
     pub fn burn(env: Env, from: Address, amount: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         from.require_auth();
 
         let balance: i128 = env
@@ -249,9 +294,13 @@ impl GovernanceTokenContract {
             panic!("insufficient balance");
         }
 
+        let _ttl_key = DataKey::Balance(from);
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(from), &(balance - amount));
+            .set(&_ttl_key, &(balance - amount));
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let supply: i128 = env
             .storage()
@@ -265,6 +314,7 @@ impl GovernanceTokenContract {
 
     /// Delegate voting power
     pub fn delegate(env: Env, delegator: Address, delegate_to: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         delegator.require_auth();
 
         let delegation = Delegation {
@@ -272,9 +322,13 @@ impl GovernanceTokenContract {
             delegated_at: env.ledger().timestamp(),
         };
 
+        let _ttl_key = DataKey::Delegation(delegator.clone());
         env.storage()
             .persistent()
-            .set(&DataKey::Delegation(delegator.clone()), &delegation);
+            .set(&_ttl_key, &delegation);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("delegate"),),
@@ -284,6 +338,7 @@ impl GovernanceTokenContract {
 
     /// Revoke delegation
     pub fn revoke_delegation(env: Env, delegator: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         delegator.require_auth();
         env.storage()
             .persistent()
@@ -292,6 +347,7 @@ impl GovernanceTokenContract {
 
     /// Get voting power (0 if delegated)
     pub fn voting_power(env: Env, voter: Address) -> i128 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let delegation = env
             .storage()
             .persistent()
@@ -310,6 +366,7 @@ impl GovernanceTokenContract {
 
     /// Get delegation info
     pub fn get_delegation(env: Env, delegator: Address) -> Option<Delegation> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Delegation(delegator))

@@ -108,6 +108,11 @@ pub const ERR_NOT_INITIALIZED: u32 = 8;
 // Contract
 // ============================================================
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct AdRegistryContract;
 
@@ -115,6 +120,7 @@ pub struct AdRegistryContract;
 impl AdRegistryContract {
     /// Initialize the contract with an admin address
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -138,6 +144,7 @@ impl AdRegistryContract {
         call_to_action: String,
         landing_url: String,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let caller = env.current_contract_address();
         let _ = caller; // will be overridden by auth
         // Use invoker auth pattern
@@ -193,15 +200,27 @@ impl AdRegistryContract {
             last_shown: 0,
         };
 
+        let _ttl_key = DataKey::Content(content_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Content(content_id), &content);
+            .set(&_ttl_key, &content);
         env.storage()
             .persistent()
-            .set(&DataKey::Metadata(content_id), &metadata);
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::Metadata(content_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Performance(content_id), &performance);
+            .set(&_ttl_key, &metadata);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::Performance(content_id);
+        env.storage()
+            .persistent()
+            .set(&_ttl_key, &performance);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage()
             .instance()
             .set(&DataKey::ContentNonce, &content_id);
@@ -216,6 +235,7 @@ impl AdRegistryContract {
 
     /// Update content status (admin only)
     pub fn update_status(env: Env, admin: Address, content_id: u64, new_status: ContentStatus) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -229,13 +249,18 @@ impl AdRegistryContract {
             .expect("content not found");
         content.status = new_status;
         content.updated_at = env.ledger().timestamp();
+        let _ttl_key = DataKey::Content(content_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Content(content_id), &content);
+            .set(&_ttl_key, &content);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     /// Flag content for review
     pub fn flag_content(env: Env, reporter: Address, content_id: u64, reason: String) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         reporter.require_auth();
 
         let mut content: AdContent = env
@@ -254,9 +279,13 @@ impl AdRegistryContract {
             verified: false,
         };
 
+        let _ttl_key = DataKey::Flag(content_id, reporter.clone());
         env.storage()
             .persistent()
-            .set(&DataKey::Flag(content_id, reporter.clone()), &flag);
+            .set(&_ttl_key, &flag);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         content.flags_count += 1;
 
@@ -271,13 +300,18 @@ impl AdRegistryContract {
         }
 
         content.updated_at = env.ledger().timestamp();
+        let _ttl_key = DataKey::Content(content_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Content(content_id), &content);
+            .set(&_ttl_key, &content);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     /// Track a content view
     pub fn track_view(env: Env, content_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let content: AdContent = env
             .storage()
             .persistent()
@@ -303,13 +337,18 @@ impl AdRegistryContract {
             perf.click_through_rate = (perf.total_clicks * 10_000) / perf.total_views;
         }
 
+        let _ttl_key = DataKey::Performance(content_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Performance(content_id), &perf);
+            .set(&_ttl_key, &perf);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     /// Track a content click
     pub fn track_click(env: Env, content_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let mut perf: ContentPerformance = env
             .storage()
             .persistent()
@@ -322,13 +361,18 @@ impl AdRegistryContract {
             perf.click_through_rate = (perf.total_clicks * 10_000) / perf.total_views;
         }
 
+        let _ttl_key = DataKey::Performance(content_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Performance(content_id), &perf);
+            .set(&_ttl_key, &perf);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     /// Archive content (owner only)
     pub fn archive_content(env: Env, owner: Address, content_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         owner.require_auth();
 
         let mut content: AdContent = env
@@ -343,9 +387,13 @@ impl AdRegistryContract {
 
         content.status = ContentStatus::Archived;
         content.updated_at = env.ledger().timestamp();
+        let _ttl_key = DataKey::Content(content_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Content(content_id), &content);
+            .set(&_ttl_key, &content);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     // ============================================================
@@ -353,22 +401,26 @@ impl AdRegistryContract {
     // ============================================================
 
     pub fn get_content(env: Env, content_id: u64) -> Option<AdContent> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Content(content_id))
     }
 
     pub fn get_metadata(env: Env, content_id: u64) -> Option<ContentMetadata> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Metadata(content_id))
     }
 
     pub fn get_performance(env: Env, content_id: u64) -> Option<ContentPerformance> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Performance(content_id))
     }
 
     pub fn is_approved(env: Env, content_id: u64) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(content) = env
             .storage()
             .persistent()
@@ -381,6 +433,7 @@ impl AdRegistryContract {
     }
 
     pub fn get_nonce(env: Env) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .instance()
             .get(&DataKey::ContentNonce)
@@ -388,6 +441,7 @@ impl AdRegistryContract {
     }
 
     pub fn set_flag_threshold(env: Env, admin: Address, threshold: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {

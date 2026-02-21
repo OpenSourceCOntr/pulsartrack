@@ -50,12 +50,18 @@ pub struct GlobalStats {
     pub last_updated: u64,
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct AnalyticsAggregatorContract;
 
 #[contractimpl]
 impl AnalyticsAggregatorContract {
     pub fn initialize(env: Env, admin: Address, oracle: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -74,6 +80,7 @@ impl AnalyticsAggregatorContract {
     }
 
     pub fn record_impression(env: Env, caller: Address, campaign_id: u64, spend: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let stored_oracle: Address = env.storage().instance().get(&DataKey::OracleAddress).unwrap();
         caller.require_auth();
 
@@ -103,9 +110,13 @@ impl AnalyticsAggregatorContract {
             analytics.cpm = (analytics.total_spend * 1_000) / analytics.total_impressions as i128;
         }
 
+        let _ttl_key = DataKey::CampaignAnalytics(campaign_id);
         env.storage()
             .persistent()
-            .set(&DataKey::CampaignAnalytics(campaign_id), &analytics);
+            .set(&_ttl_key, &analytics);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         // Update hourly stats
         let hour = env.ledger().timestamp() / 3600;
@@ -133,6 +144,7 @@ impl AnalyticsAggregatorContract {
     }
 
     pub fn record_click(env: Env, caller: Address, campaign_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         caller.require_auth();
 
         let mut analytics: CampaignAnalytics = env
@@ -147,9 +159,13 @@ impl AnalyticsAggregatorContract {
         }
         analytics.last_updated = env.ledger().timestamp();
 
+        let _ttl_key = DataKey::CampaignAnalytics(campaign_id);
         env.storage()
             .persistent()
-            .set(&DataKey::CampaignAnalytics(campaign_id), &analytics);
+            .set(&_ttl_key, &analytics);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let mut global: GlobalStats = env.storage().instance().get(&DataKey::GlobalStats).unwrap();
         global.total_clicks += 1;
@@ -157,12 +173,14 @@ impl AnalyticsAggregatorContract {
     }
 
     pub fn get_campaign_analytics(env: Env, campaign_id: u64) -> Option<CampaignAnalytics> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::CampaignAnalytics(campaign_id))
     }
 
     pub fn get_global_stats(env: Env) -> GlobalStats {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .instance()
             .get(&DataKey::GlobalStats)
@@ -176,6 +194,7 @@ impl AnalyticsAggregatorContract {
     }
 
     pub fn get_hourly_stats(env: Env, campaign_id: u64, hour: u64) -> Option<HourlyStats> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .temporary()
             .get(&DataKey::HourlyStats(campaign_id, hour))
