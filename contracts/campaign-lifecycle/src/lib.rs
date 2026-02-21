@@ -252,3 +252,5 @@ impl CampaignLifecycleContract {
         }
     }
 }
+
+mod test;
