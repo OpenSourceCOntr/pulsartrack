@@ -11,6 +11,68 @@ interface PulsarEvent {
 
 const clients = new Set<WebSocket>();
 
+const INITIAL_BACKOFF_MS = 1000;
+const MAX_BACKOFF_MS = 30000;
+let currentBackoff = INITIAL_BACKOFF_MS;
+let stopStream: (() => void) | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function startLedgerStream(): void {
+  stopStream = streamLedgers(
+    (ledger) => {
+      // Stream is alive — reset backoff on successful message
+      currentBackoff = INITIAL_BACKOFF_MS;
+
+      broadcast({
+        type: 'ledger_closed',
+        data: {
+          sequence: ledger.sequence,
+          closedAt: ledger.closed_at,
+          transactionCount: ledger.transaction_count,
+        },
+        timestamp: Date.now(),
+      });
+    },
+    (err) => {
+      console.error('[WS] Ledger stream error:', err?.message);
+      scheduleReconnect();
+    }
+  );
+}
+
+function scheduleReconnect(): void {
+  if (reconnectTimer) return;
+
+  broadcast({
+    type: 'reconnecting',
+    data: { message: 'Horizon stream dropped, reconnecting...', retryMs: currentBackoff },
+    timestamp: Date.now(),
+  });
+
+  console.log(`[WS] Reconnecting in ${currentBackoff}ms...`);
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+
+    // Clean up previous stream
+    if (stopStream) {
+      try { stopStream(); } catch { /* already closed */ }
+      stopStream = null;
+    }
+
+    startLedgerStream();
+
+    broadcast({
+      type: 'reconnected',
+      data: { message: 'Horizon stream resumed' },
+      timestamp: Date.now(),
+    });
+
+    // Exponential backoff for next failure
+    currentBackoff = Math.min(currentBackoff * 2, MAX_BACKOFF_MS);
+  }, currentBackoff);
+}
+
 export function setupWebSocketServer(server: Server): WebSocketServer {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
@@ -48,27 +110,19 @@ export function setupWebSocketServer(server: Server): WebSocketServer {
     });
   });
 
-  // Start streaming Stellar ledger events
-  const stopStream = streamLedgers(
-    (ledger) => {
-      broadcast({
-        type: 'ledger_closed',
-        data: {
-          sequence: ledger.sequence,
-          closedAt: ledger.closed_at,
-          transactionCount: ledger.transaction_count,
-        },
-        timestamp: Date.now(),
-      });
-    },
-    (err) => {
-      console.error('[WS] Ledger stream error:', err?.message);
-    }
-  );
+  // Start streaming Stellar ledger events with reconnection
+  startLedgerStream();
 
   // Clean up on server close
   wss.on('close', () => {
-    stopStream();
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    if (stopStream) {
+      stopStream();
+      stopStream = null;
+    }
   });
 
   return wss;
