@@ -130,8 +130,9 @@ export function TargetingForm({ initial, onSave, isSaving }: TargetingFormProps)
         <h3 className="text-sm font-semibold text-gray-200 mb-3">Age Range</h3>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Min Age</label>
+            <label htmlFor="targeting-min-age" className="block text-xs text-gray-400 mb-1">Min Age</label>
             <input
+              id="targeting-min-age"
               type="number"
               value={config.minAge}
               onChange={(e) => setConfig((c) => ({ ...c, minAge: parseInt(e.target.value) || 18 }))}
@@ -141,8 +142,9 @@ export function TargetingForm({ initial, onSave, isSaving }: TargetingFormProps)
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Max Age</label>
+            <label htmlFor="targeting-max-age" className="block text-xs text-gray-400 mb-1">Max Age</label>
             <input
+              id="targeting-max-age"
               type="number"
               value={config.maxAge}
               onChange={(e) => setConfig((c) => ({ ...c, maxAge: parseInt(e.target.value) || 65 }))}
@@ -160,31 +162,36 @@ export function TargetingForm({ initial, onSave, isSaving }: TargetingFormProps)
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-300">Exclude Fraud</p>
-              <p className="text-xs text-gray-500">Block flagged addresses</p>
+              <p className="text-sm text-gray-300" id="exclude-fraud-label">Exclude Fraud</p>
+              <p className="text-xs text-gray-500" id="exclude-fraud-desc">Block flagged addresses</p>
             </div>
             <input
               type="checkbox"
               checked={config.excludeFraud}
               onChange={(e) => setConfig((c) => ({ ...c, excludeFraud: e.target.checked }))}
+              aria-labelledby="exclude-fraud-label"
+              aria-describedby="exclude-fraud-desc"
               className="w-4 h-4 accent-indigo-500"
             />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-300">Require KYC</p>
-              <p className="text-xs text-gray-500">Only verified users</p>
+              <p className="text-sm text-gray-300" id="require-kyc-label">Require KYC</p>
+              <p className="text-xs text-gray-500" id="require-kyc-desc">Only verified users</p>
             </div>
             <input
               type="checkbox"
               checked={config.requireKyc}
               onChange={(e) => setConfig((c) => ({ ...c, requireKyc: e.target.checked }))}
+              aria-labelledby="require-kyc-label"
+              aria-describedby="require-kyc-desc"
               className="w-4 h-4 accent-indigo-500"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Min Publisher Reputation (0-1000)</label>
+            <label htmlFor="targeting-min-reputation" className="block text-xs text-gray-400 mb-1">Min Publisher Reputation (0-1000)</label>
             <input
+              id="targeting-min-reputation"
               type="number"
               value={config.minReputation}
               onChange={(e) => setConfig((c) => ({ ...c, minReputation: parseInt(e.target.value) || 0 }))}
@@ -194,8 +201,9 @@ export function TargetingForm({ initial, onSave, isSaving }: TargetingFormProps)
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Max CPM (XLM, leave blank for no limit)</label>
+            <label htmlFor="targeting-max-cpm" className="block text-xs text-gray-400 mb-1">Max CPM (XLM, leave blank for no limit)</label>
             <input
+              id="targeting-max-cpm"
               type="number"
               value={config.maxCpmXlm}
               onChange={(e) => setConfig((c) => ({ ...c, maxCpmXlm: e.target.value }))}

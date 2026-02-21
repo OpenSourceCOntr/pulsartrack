@@ -39,7 +39,14 @@ function ScoreRing({ score, tier }: { score: number; tier: string }) {
   const styles = TIER_STYLES[tier] || TIER_STYLES.Bronze;
 
   return (
-    <svg width={72} height={72} viewBox="0 0 72 72" className="rotate-[-90deg]">
+    <svg
+      width={72}
+      height={72}
+      viewBox="0 0 72 72"
+      className="rotate-[-90deg]"
+      role="img"
+      aria-label={`Reputation score ${score} out of 1000, ${tier} tier`}
+    >
       <circle cx={36} cy={36} r={r} fill="none" stroke="#374151" strokeWidth={6} />
       <circle
         cx={36}

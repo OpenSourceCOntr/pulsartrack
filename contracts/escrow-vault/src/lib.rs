@@ -1,5 +1,11 @@
 //! PulsarTrack - Escrow Vault (Soroban)
 //! Advanced escrow with time-locked funds, performance triggers, and multi-party approval.
+//!
+//! Events:
+//! - ("escrow", "created"): [escrow_id: u64, campaign_id: u64, amount: i128]
+//! - ("escrow", "release"): [escrow_id: u64, amount: i128]
+//! - ("escrow", "release_partial"): [escrow_id: u64, amount: i128]
+//! - ("escrow", "refund"): [escrow_id: u64, amount: i128]
 
 
 #![no_std]
@@ -79,6 +85,11 @@ pub enum DataKey {
 // Contract
 // ============================================================
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct EscrowVaultContract;
 
@@ -86,6 +97,7 @@ pub struct EscrowVaultContract;
 impl EscrowVaultContract {
     /// Initialize the contract
     pub fn initialize(env: Env, admin: Address, token_address: Address, oracle: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -117,6 +129,7 @@ impl EscrowVaultContract {
         expires_in: u64,
         required_approvers: Vec<Address>,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         depositor.require_auth();
 
         if amount <= 0 {
@@ -156,18 +169,30 @@ impl EscrowVaultContract {
             expires_at: now + expires_in,
         };
 
+        let _ttl_key = DataKey::Escrow(escrow_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Escrow(escrow_id), &escrow);
+            .set(&_ttl_key, &escrow);
         env.storage()
             .persistent()
-            .set(&DataKey::ApprovalCount(escrow_id), &0u32);
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::ApprovalCount(escrow_id);
+        env.storage()
+            .persistent()
+            .set(&_ttl_key, &0u32);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         // Register required approvers
         for approver in required_approvers.iter() {
+            let _ttl_key = DataKey::RequiredApprover(escrow_id, approver.clone());
             env.storage()
                 .persistent()
-                .set(&DataKey::RequiredApprover(escrow_id, approver.clone()), &true);
+                .set(&_ttl_key, &true);
+            env.storage()
+                .persistent()
+                .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         }
 
         env.storage()
@@ -184,6 +209,7 @@ impl EscrowVaultContract {
 
     /// Approve escrow release
     pub fn approve_release(env: Env, approver: Address, escrow_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         approver.require_auth();
 
         let is_required: bool = env
@@ -211,22 +237,31 @@ impl EscrowVaultContract {
             timestamp: env.ledger().timestamp(),
         };
 
+        let _ttl_key = DataKey::Approval(escrow_id, approver);
         env.storage()
             .persistent()
-            .set(&DataKey::Approval(escrow_id, approver), &approval);
+            .set(&_ttl_key, &approval);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let count: u32 = env
             .storage()
             .persistent()
             .get(&DataKey::ApprovalCount(escrow_id))
             .unwrap_or(0);
+        let _ttl_key = DataKey::ApprovalCount(escrow_id);
         env.storage()
             .persistent()
-            .set(&DataKey::ApprovalCount(escrow_id), &(count + 1));
+            .set(&_ttl_key, &(count + 1));
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     /// Release full escrow to beneficiary
     pub fn release_escrow(env: Env, caller: Address, escrow_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         caller.require_auth();
 
         let mut escrow: Escrow = env
@@ -261,18 +296,23 @@ impl EscrowVaultContract {
         escrow.state = EscrowState::Released;
         escrow.released_at = Some(env.ledger().timestamp());
 
+        let _ttl_key = DataKey::Escrow(escrow_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Escrow(escrow_id), &escrow);
+            .set(&_ttl_key, &escrow);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
-            (symbol_short!("escrow"), symbol_short!("released")),
+            (symbol_short!("escrow"), symbol_short!("release")),
             (escrow_id, locked),
         );
     }
 
     /// Partial release
     pub fn release_partial(env: Env, caller: Address, escrow_id: u64, amount: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         caller.require_auth();
 
         let mut escrow: Escrow = env
@@ -304,13 +344,23 @@ impl EscrowVaultContract {
         escrow.released_amount += amount;
         escrow.state = EscrowState::PartiallyReleased;
 
+        let _ttl_key = DataKey::Escrow(escrow_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Escrow(escrow_id), &escrow);
+            .set(&_ttl_key, &escrow);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("release_p")), // "release_partial" is too long for symbol_short
+            (escrow_id, amount),
+        );
     }
 
     /// Refund escrow if expired
     pub fn refund_escrow(env: Env, caller: Address, escrow_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         caller.require_auth();
 
         let mut escrow: Escrow = env
@@ -341,12 +391,16 @@ impl EscrowVaultContract {
         escrow.refunded_amount = refund;
         escrow.state = EscrowState::Refunded;
 
+        let _ttl_key = DataKey::Escrow(escrow_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Escrow(escrow_id), &escrow);
+            .set(&_ttl_key, &escrow);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
-            (symbol_short!("escrow"), symbol_short!("refunded")),
+            (symbol_short!("escrow"), symbol_short!("refund")),
             (escrow_id, refund),
         );
     }
@@ -360,6 +414,7 @@ impl EscrowVaultContract {
         views: u64,
         clicks: u64,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         oracle.require_auth();
         let stored_oracle: Address = env
             .storage()
@@ -381,9 +436,13 @@ impl EscrowVaultContract {
             last_updated: env.ledger().timestamp(),
         };
 
+        let _ttl_key = DataKey::Performance(escrow_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Performance(escrow_id), &metrics);
+            .set(&_ttl_key, &metrics);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     // ============================================================
@@ -391,18 +450,21 @@ impl EscrowVaultContract {
     // ============================================================
 
     pub fn get_escrow(env: Env, escrow_id: u64) -> Option<Escrow> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Escrow(escrow_id))
     }
 
     pub fn get_performance(env: Env, escrow_id: u64) -> Option<PerformanceMetrics> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Performance(escrow_id))
     }
 
     pub fn get_approval_count(env: Env, escrow_id: u64) -> u32 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::ApprovalCount(escrow_id))
@@ -410,6 +472,7 @@ impl EscrowVaultContract {
     }
 
     pub fn can_release(env: Env, escrow_id: u64) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(escrow) = env
             .storage()
             .persistent()
@@ -480,3 +543,5 @@ impl EscrowVaultContract {
         }
     }
 }
+
+mod test;

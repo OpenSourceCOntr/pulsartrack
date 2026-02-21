@@ -53,12 +53,18 @@ pub enum DataKey {
     Funnel(u64),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct CampaignAnalyticsContract;
 
 #[contractimpl]
 impl CampaignAnalyticsContract {
     pub fn initialize(env: Env, admin: Address, oracle: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -77,6 +83,7 @@ impl CampaignAnalyticsContract {
         spend: i128,
         reach: u64,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         oracle.require_auth();
         let stored_oracle: Address = env.storage().instance().get(&DataKey::OracleAddress).unwrap();
         if oracle != stored_oracle {
@@ -99,8 +106,12 @@ impl CampaignAnalyticsContract {
             .persistent()
             .get(&DataKey::SnapshotCount(campaign_id))
             .unwrap_or(0);
-        env.storage().persistent().set(&DataKey::Snapshot(campaign_id, count), &snapshot);
-        env.storage().persistent().set(&DataKey::SnapshotCount(campaign_id), &(count + 1));
+        let _ttl_key = DataKey::Snapshot(campaign_id, count);
+        env.storage().persistent().set(&_ttl_key, &snapshot);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::SnapshotCount(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &(count + 1));
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn update_funnel(
@@ -114,6 +125,7 @@ impl CampaignAnalyticsContract {
         conversions: u64,
         conversion_value: i128,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         oracle.require_auth();
         let stored_oracle: Address = env.storage().instance().get(&DataKey::OracleAddress).unwrap();
         if oracle != stored_oracle {
@@ -130,7 +142,9 @@ impl CampaignAnalyticsContract {
             conversion_value,
         };
 
-        env.storage().persistent().set(&DataKey::Funnel(campaign_id), &funnel);
+        let _ttl_key = DataKey::Funnel(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &funnel);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn update_retention(
@@ -143,6 +157,7 @@ impl CampaignAnalyticsContract {
         avg_session: u64,
         bounce_rate: u32,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         oracle.require_auth();
         let stored_oracle: Address = env.storage().instance().get(&DataKey::OracleAddress).unwrap();
         if oracle != stored_oracle {
@@ -158,22 +173,30 @@ impl CampaignAnalyticsContract {
             bounce_rate,
         };
 
-        env.storage().persistent().set(&DataKey::RetentionMetrics(campaign_id), &metrics);
+        let _ttl_key = DataKey::RetentionMetrics(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &metrics);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_snapshot(env: Env, campaign_id: u64, index: u32) -> Option<CampaignSnapshot> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Snapshot(campaign_id, index))
     }
 
     pub fn get_snapshot_count(env: Env, campaign_id: u64) -> u32 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::SnapshotCount(campaign_id)).unwrap_or(0)
     }
 
     pub fn get_funnel(env: Env, campaign_id: u64) -> Option<ConversionFunnel> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Funnel(campaign_id))
     }
 
     pub fn get_retention(env: Env, campaign_id: u64) -> Option<RetentionMetrics> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::RetentionMetrics(campaign_id))
     }
 }
+
+mod test;

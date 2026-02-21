@@ -21,13 +21,14 @@ interface FraudAlertProps {
   onDismiss?: (id: string) => void;
 }
 
-const SEVERITY_STYLES: Record<FraudSeverity, { bg: string; border: string; text: string; badge: string; icon: string }> = {
+const SEVERITY_STYLES: Record<FraudSeverity, { bg: string; border: string; text: string; badge: string; icon: string; label: string }> = {
   low: {
     bg: 'bg-yellow-900/10',
     border: 'border-yellow-800/40',
     text: 'text-yellow-300',
     badge: 'bg-yellow-900/40 text-yellow-300 border border-yellow-700',
     icon: '⚠',
+    label: 'Low severity',
   },
   medium: {
     bg: 'bg-orange-900/10',
@@ -35,6 +36,7 @@ const SEVERITY_STYLES: Record<FraudSeverity, { bg: string; border: string; text:
     text: 'text-orange-300',
     badge: 'bg-orange-900/40 text-orange-300 border border-orange-700',
     icon: '⚠',
+    label: 'Medium severity',
   },
   high: {
     bg: 'bg-red-900/15',
@@ -42,6 +44,7 @@ const SEVERITY_STYLES: Record<FraudSeverity, { bg: string; border: string; text:
     text: 'text-red-300',
     badge: 'bg-red-900/40 text-red-300 border border-red-700',
     icon: '🚨',
+    label: 'High severity',
   },
   critical: {
     bg: 'bg-red-900/25',
@@ -49,6 +52,7 @@ const SEVERITY_STYLES: Record<FraudSeverity, { bg: string; border: string; text:
     text: 'text-red-200',
     badge: 'bg-red-700 text-white border border-red-500',
     icon: '🚨',
+    label: 'Critical severity',
   },
 };
 
@@ -72,14 +76,14 @@ export function FraudAlert({ alert, onResolve, onDismiss }: FraudAlertProps) {
   }
 
   return (
-    <div className={clsx('border rounded-xl p-4', styles.bg, styles.border)}>
+    <div className={clsx('border rounded-xl p-4', styles.bg, styles.border)} role="alert">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2 flex-1 min-w-0">
-          <span className="text-lg flex-shrink-0">{styles.icon}</span>
+          <span className="text-lg flex-shrink-0" aria-hidden="true">{styles.icon}</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={clsx('text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-full', styles.badge)}>
-                {alert.severity}
+                {styles.label}
               </span>
               <span className="text-xs font-medium text-gray-300">{alert.type}</span>
             </div>
@@ -110,6 +114,7 @@ export function FraudAlert({ alert, onResolve, onDismiss }: FraudAlertProps) {
           {onDismiss && (
             <button
               onClick={() => onDismiss(alert.id)}
+              aria-label="Dismiss alert"
               className="text-xs px-2.5 py-1 bg-gray-700 hover:bg-gray-600 text-gray-400 rounded-lg transition-colors"
             >
               ✕

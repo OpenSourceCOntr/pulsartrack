@@ -61,12 +61,18 @@ pub enum DataKey {
     TargetingScore(u64, Address),  // campaign_id, publisher
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct TargetingEngineContract;
 
 #[contractimpl]
 impl TargetingEngineContract {
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -80,6 +86,7 @@ impl TargetingEngineContract {
         campaign_id: u64,
         params: TargetingParams,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         advertiser.require_auth();
 
         if params.min_age > params.max_age {
@@ -105,7 +112,9 @@ impl TargetingEngineContract {
             last_updated: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(&DataKey::TargetingConfig(campaign_id), &config);
+        let _ttl_key = DataKey::TargetingConfig(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &config);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("targeting"), symbol_short!("set")),
@@ -121,6 +130,7 @@ impl TargetingEngineContract {
         score: u32,
         match_reasons: String,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         oracle.require_auth();
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         // In production, use authorized oracle list
@@ -136,21 +146,23 @@ impl TargetingEngineContract {
             computed_at: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(
-            &DataKey::TargetingScore(campaign_id, publisher),
-            &targeting_score,
-        );
+        let _ttl_key = DataKey::TargetingScore(campaign_id, publisher);
+        env.storage().persistent().set(&_ttl_key, &targeting_score);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_targeting(env: Env, campaign_id: u64) -> Option<TargetingConfig> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::TargetingConfig(campaign_id))
     }
 
     pub fn get_targeting_score(env: Env, campaign_id: u64, publisher: Address) -> Option<TargetingScore> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::TargetingScore(campaign_id, publisher))
     }
 
     pub fn is_publisher_targeted(env: Env, campaign_id: u64, publisher: Address, min_score: u32) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(score) = env
             .storage()
             .persistent()
@@ -162,3 +174,5 @@ impl TargetingEngineContract {
         }
     }
 }
+
+mod test;

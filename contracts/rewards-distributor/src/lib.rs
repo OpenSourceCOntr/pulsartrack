@@ -41,12 +41,18 @@ pub enum DataKey {
     UserRewards(Address),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct RewardsDistributorContract;
 
 #[contractimpl]
 impl RewardsDistributorContract {
     pub fn initialize(env: Env, admin: Address, reward_token: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -64,6 +70,7 @@ impl RewardsDistributorContract {
         reward_per_unit: i128,
         duration_ledgers: u32,
     ) -> u32 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -85,13 +92,16 @@ impl RewardsDistributorContract {
             is_active: true,
         };
 
-        env.storage().persistent().set(&DataKey::Program(program_id), &program);
+        let _ttl_key = DataKey::Program(program_id);
+        env.storage().persistent().set(&_ttl_key, &program);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage().instance().set(&DataKey::ProgramCounter, &program_id);
 
         program_id
     }
 
     pub fn distribute_rewards(env: Env, admin: Address, recipient: Address, amount: i128, program_id: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -117,7 +127,9 @@ impl RewardsDistributorContract {
         }
 
         program.distributed += amount;
-        env.storage().persistent().set(&DataKey::Program(program_id), &program);
+        let _ttl_key = DataKey::Program(program_id);
+        env.storage().persistent().set(&_ttl_key, &program);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         // Update user rewards
         let key = DataKey::UserRewards(recipient.clone());
@@ -137,6 +149,7 @@ impl RewardsDistributorContract {
         rewards.pending += amount;
         rewards.last_earned = env.ledger().timestamp();
         env.storage().persistent().set(&key, &rewards);
+        env.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("rewards"), symbol_short!("earned")),
@@ -145,6 +158,7 @@ impl RewardsDistributorContract {
     }
 
     pub fn claim_rewards(env: Env, user: Address) -> i128 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         user.require_auth();
 
         let key = DataKey::UserRewards(user.clone());
@@ -166,6 +180,7 @@ impl RewardsDistributorContract {
         rewards.total_claimed += pending;
         rewards.pending = 0;
         env.storage().persistent().set(&key, &rewards);
+        env.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("rewards"), symbol_short!("claimed")),
@@ -176,10 +191,14 @@ impl RewardsDistributorContract {
     }
 
     pub fn get_program(env: Env, program_id: u32) -> Option<RewardProgram> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Program(program_id))
     }
 
     pub fn get_user_rewards(env: Env, user: Address) -> Option<UserRewards> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::UserRewards(user))
     }
 }
+
+mod test;

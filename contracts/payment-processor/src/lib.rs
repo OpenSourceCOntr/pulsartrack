@@ -80,6 +80,11 @@ pub enum DataKey {
 // Contract
 // ============================================================
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct PaymentProcessorContract;
 
@@ -87,6 +92,7 @@ pub struct PaymentProcessorContract;
 impl PaymentProcessorContract {
     /// Initialize the contract
     pub fn initialize(env: Env, admin: Address, treasury: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -111,6 +117,7 @@ impl PaymentProcessorContract {
         min_amount: i128,
         daily_limit: i128,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -124,13 +131,18 @@ impl PaymentProcessorContract {
             daily_volume: 0,
         };
 
+        let _ttl_key = DataKey::TokenConfig(token);
         env.storage()
             .persistent()
-            .set(&DataKey::TokenConfig(token), &config);
+            .set(&_ttl_key, &config);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     /// Disable a payment token
     pub fn remove_token(env: Env, admin: Address, token: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -150,6 +162,7 @@ impl PaymentProcessorContract {
         token: Address,
         amount: i128,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         payer.require_auth();
 
         if payer == recipient {
@@ -224,9 +237,13 @@ impl PaymentProcessorContract {
             processed_at: Some(env.ledger().timestamp()),
         };
 
+        let _ttl_key = DataKey::Payment(payment_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Payment(payment_id), &payment);
+            .set(&_ttl_key, &payment);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage()
             .instance()
             .set(&DataKey::NextPaymentId, &(payment_id + 1));
@@ -252,6 +269,7 @@ impl PaymentProcessorContract {
 
     /// Update platform fee (admin only)
     pub fn set_platform_fee(env: Env, admin: Address, fee_bps: u32) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -270,24 +288,28 @@ impl PaymentProcessorContract {
     // ============================================================
 
     pub fn get_payment(env: Env, payment_id: u64) -> Option<Payment> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Payment(payment_id))
     }
 
     pub fn get_user_stats(env: Env, user: Address) -> Option<UserPaymentStats> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::UserStats(user))
     }
 
     pub fn get_revenue_stats(env: Env, token: Address) -> Option<RevenueStats> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::RevenueStats(token))
     }
 
     pub fn get_token_config(env: Env, token: Address) -> Option<TokenConfig> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::TokenConfig(token))
@@ -313,6 +335,7 @@ impl PaymentProcessorContract {
         stats.total_spent += amount;
         stats.last_payment = env.ledger().timestamp();
         env.storage().persistent().set(&key, &stats);
+        env.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     fn _update_revenue_stats(env: &Env, token: &Address, fee: i128, volume: i128) {
@@ -331,5 +354,8 @@ impl PaymentProcessorContract {
         stats.total_volume += volume;
         stats.payment_count += 1;
         env.storage().persistent().set(&key, &stats);
+        env.storage().persistent().extend_ttl(&key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 }
+
+mod test;

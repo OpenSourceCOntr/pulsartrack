@@ -48,12 +48,18 @@ pub enum DataKey {
     NameOwner(String),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct IdentityRegistryContract;
 
 #[contractimpl]
 impl IdentityRegistryContract {
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -69,6 +75,7 @@ impl IdentityRegistryContract {
         display_name: String,
         metadata_hash: String,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         account.require_auth();
 
         if env.storage().persistent().has(&DataKey::Identity(account.clone())) {
@@ -91,8 +98,12 @@ impl IdentityRegistryContract {
             last_activity: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(&DataKey::Identity(account.clone()), &identity);
-        env.storage().persistent().set(&DataKey::NameOwner(display_name), &account);
+        let _ttl_key = DataKey::Identity(account.clone());
+        env.storage().persistent().set(&_ttl_key, &identity);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::NameOwner(display_name);
+        env.storage().persistent().set(&_ttl_key, &account);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let count: u64 = env.storage().instance().get(&DataKey::IdentityCount).unwrap_or(0);
         env.storage().instance().set(&DataKey::IdentityCount, &(count + 1));
@@ -109,6 +120,7 @@ impl IdentityRegistryContract {
         account: Address,
         credentials_hash: String,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -125,7 +137,9 @@ impl IdentityRegistryContract {
         identity.credentials_hash = credentials_hash;
         identity.verified_at = Some(env.ledger().timestamp());
 
-        env.storage().persistent().set(&DataKey::Identity(account.clone()), &identity);
+        let _ttl_key = DataKey::Identity(account.clone());
+        env.storage().persistent().set(&_ttl_key, &identity);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("identity"), symbol_short!("verified")),
@@ -134,6 +148,7 @@ impl IdentityRegistryContract {
     }
 
     pub fn update_metadata(env: Env, account: Address, metadata_hash: String) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         account.require_auth();
 
         let mut identity: Identity = env
@@ -145,10 +160,13 @@ impl IdentityRegistryContract {
         identity.metadata_hash = metadata_hash;
         identity.last_activity = env.ledger().timestamp();
 
-        env.storage().persistent().set(&DataKey::Identity(account), &identity);
+        let _ttl_key = DataKey::Identity(account);
+        env.storage().persistent().set(&_ttl_key, &identity);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn suspend_identity(env: Env, admin: Address, account: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -162,14 +180,18 @@ impl IdentityRegistryContract {
             .expect("identity not found");
 
         identity.status = IdentityStatus::Suspended;
-        env.storage().persistent().set(&DataKey::Identity(account), &identity);
+        let _ttl_key = DataKey::Identity(account);
+        env.storage().persistent().set(&_ttl_key, &identity);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn get_identity(env: Env, account: Address) -> Option<Identity> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Identity(account))
     }
 
     pub fn is_verified(env: Env, account: Address) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if let Some(identity) = env.storage().persistent().get::<DataKey, Identity>(&DataKey::Identity(account)) {
             matches!(identity.status, IdentityStatus::Verified)
         } else {
@@ -178,10 +200,14 @@ impl IdentityRegistryContract {
     }
 
     pub fn get_by_name(env: Env, display_name: String) -> Option<Address> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::NameOwner(display_name))
     }
 
     pub fn get_identity_count(env: Env) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().instance().get(&DataKey::IdentityCount).unwrap_or(0)
     }
 }
+
+mod test;

@@ -47,12 +47,18 @@ pub enum DataKey {
     Node(Address),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct PublisherNetworkContract;
 
 #[contractimpl]
 impl PublisherNetworkContract {
     pub fn initialize(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -77,6 +83,7 @@ impl PublisherNetworkContract {
         geographic_zone: String,
         content_categories: Vec<String>,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         publisher.require_auth();
 
         if env.storage().persistent().has(&DataKey::Node(publisher.clone())) {
@@ -95,7 +102,9 @@ impl PublisherNetworkContract {
             last_heartbeat: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(&DataKey::Node(publisher.clone()), &node);
+        let _ttl_key = DataKey::Node(publisher.clone());
+        env.storage().persistent().set(&_ttl_key, &node);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let count: u64 = env.storage().instance().get(&DataKey::NodeCount).unwrap_or(0);
         env.storage().instance().set(&DataKey::NodeCount, &(count + 1));
@@ -113,6 +122,7 @@ impl PublisherNetworkContract {
     }
 
     pub fn heartbeat(env: Env, publisher: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         publisher.require_auth();
 
         let mut node: NetworkNode = env
@@ -122,10 +132,13 @@ impl PublisherNetworkContract {
             .expect("not in network");
 
         node.last_heartbeat = env.ledger().timestamp();
-        env.storage().persistent().set(&DataKey::Node(publisher), &node);
+        let _ttl_key = DataKey::Node(publisher);
+        env.storage().persistent().set(&_ttl_key, &node);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     pub fn deactivate(env: Env, publisher: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         publisher.require_auth();
 
         let mut node: NetworkNode = env
@@ -135,7 +148,9 @@ impl PublisherNetworkContract {
             .expect("not in network");
 
         node.is_active = false;
-        env.storage().persistent().set(&DataKey::Node(publisher), &node);
+        let _ttl_key = DataKey::Node(publisher);
+        env.storage().persistent().set(&_ttl_key, &node);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         let mut stats: NetworkStats = env.storage().instance().get(&DataKey::NetworkStats).unwrap();
         if stats.active_nodes > 0 {
@@ -145,6 +160,7 @@ impl PublisherNetworkContract {
     }
 
     pub fn record_impression(env: Env, publisher: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let mut stats: NetworkStats = env.storage().instance().get(&DataKey::NetworkStats).unwrap();
         stats.total_impressions_served += 1;
         stats.last_updated = env.ledger().timestamp();
@@ -152,10 +168,12 @@ impl PublisherNetworkContract {
     }
 
     pub fn get_node(env: Env, publisher: Address) -> Option<NetworkNode> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Node(publisher))
     }
 
     pub fn get_network_stats(env: Env) -> NetworkStats {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().instance().get(&DataKey::NetworkStats).unwrap_or(NetworkStats {
             total_nodes: 0,
             active_nodes: 0,
@@ -166,6 +184,9 @@ impl PublisherNetworkContract {
     }
 
     pub fn get_node_count(env: Env) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().instance().get(&DataKey::NodeCount).unwrap_or(0)
     }
 }
+
+mod test;

@@ -45,6 +45,11 @@ pub enum DataKey {
     PublisherBalance(Address),
 }
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+
 #[contract]
 pub struct RevenueSettlementContract;
 
@@ -57,6 +62,7 @@ impl RevenueSettlementContract {
         treasury: Address,
         platform: Address,
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -81,6 +87,7 @@ impl RevenueSettlementContract {
     }
 
     pub fn record_revenue(env: Env, admin: Address, campaign_id: u64, amount: i128, publisher: Address) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -106,6 +113,7 @@ impl RevenueSettlementContract {
         let pub_key = DataKey::PublisherBalance(publisher.clone());
         let current_balance: i128 = env.storage().persistent().get(&pub_key).unwrap_or(0);
         env.storage().persistent().set(&pub_key, &(current_balance + publisher_amount));
+        env.storage().persistent().extend_ttl(&pub_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         // Record settlement
         let counter: u64 = env.storage().instance().get(&DataKey::SettlementCounter).unwrap_or(0);
@@ -120,13 +128,16 @@ impl RevenueSettlementContract {
             settled_at: env.ledger().timestamp(),
         };
 
-        env.storage().persistent().set(&DataKey::Settlement(settlement_id), &record);
+        let _ttl_key = DataKey::Settlement(settlement_id);
+        env.storage().persistent().set(&_ttl_key, &record);
+        env.storage().persistent().extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage().instance().set(&DataKey::SettlementCounter, &settlement_id);
 
         settlement_id
     }
 
     pub fn distribute_platform_revenue(env: Env, admin: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -154,6 +165,7 @@ impl RevenueSettlementContract {
     }
 
     pub fn claim_publisher_balance(env: Env, publisher: Address) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         publisher.require_auth();
 
         let pub_key = DataKey::PublisherBalance(publisher.clone());
@@ -168,6 +180,7 @@ impl RevenueSettlementContract {
         token_client.transfer(&env.current_contract_address(), &publisher, &balance);
 
         env.storage().persistent().set(&pub_key, &0i128);
+        env.storage().persistent().extend_ttl(&pub_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("revenue"), symbol_short!("claimed")),
@@ -176,14 +189,19 @@ impl RevenueSettlementContract {
     }
 
     pub fn get_revenue_pool(env: Env) -> RevenuePool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().instance().get(&DataKey::RevenuePool).expect("not initialized")
     }
 
     pub fn get_publisher_balance(env: Env, publisher: Address) -> i128 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::PublisherBalance(publisher)).unwrap_or(0)
     }
 
     pub fn get_settlement(env: Env, settlement_id: u64) -> Option<SettlementRecord> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage().persistent().get(&DataKey::Settlement(settlement_id))
     }
 }
+
+mod test;

@@ -1,5 +1,10 @@
 //! PulsarTrack - Governance DAO (Soroban)
 //! On-chain DAO governance with proposals and voting on Stellar.
+//!
+//! Events:
+//! - ("proposal", "created"): [proposal_id: u64, proposer: Address]
+//! - ("gov", "voted"): [proposal_id: u64, voter: Address, power: i128]
+//! - ("proposal", "finalized"): [proposal_id: u64, status: ProposalStatus]
 
 
 #![no_std]
@@ -80,6 +85,11 @@ pub enum DataKey {
 // Contract
 // ============================================================
 
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
+const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 34_560;
+const PERSISTENT_BUMP_AMOUNT: u32 = 259_200;
+
 #[contract]
 pub struct GovernanceDaoContract;
 
@@ -95,6 +105,7 @@ impl GovernanceDaoContract {
         pass_threshold: u32,    // percentage (e.g., 51)
         proposer_min: i128,     // min tokens to create proposal
     ) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
         }
@@ -128,6 +139,7 @@ impl GovernanceDaoContract {
         description: String,
         target_contract: Option<Address>,
     ) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         proposer.require_auth();
 
         let counter: u64 = env
@@ -171,9 +183,13 @@ impl GovernanceDaoContract {
             executed_at: None,
         };
 
+        let _ttl_key = DataKey::Proposal(proposal_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Proposal(proposal_id), &proposal);
+            .set(&_ttl_key, &proposal);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
         env.storage()
             .instance()
             .set(&DataKey::ProposalCounter, &proposal_id);
@@ -188,6 +204,7 @@ impl GovernanceDaoContract {
 
     /// Cast a vote on a proposal
     pub fn cast_vote(env: Env, voter: Address, proposal_id: u64, choice: VoteChoice, power: i128) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         voter.require_auth();
 
         // Check not already voted
@@ -230,24 +247,37 @@ impl GovernanceDaoContract {
             voted_at: env.ledger().timestamp(),
         };
 
+        let _ttl_key = DataKey::Vote(proposal_id, voter.clone());
         env.storage()
             .persistent()
-            .set(&DataKey::Vote(proposal_id, voter.clone()), &vote);
+            .set(&_ttl_key, &vote);
         env.storage()
             .persistent()
-            .set(&DataKey::HasVoted(proposal_id, voter.clone()), &true);
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::HasVoted(proposal_id, voter.clone());
         env.storage()
             .persistent()
-            .set(&DataKey::Proposal(proposal_id), &proposal);
+            .set(&_ttl_key, &true);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        let _ttl_key = DataKey::Proposal(proposal_id);
+        env.storage()
+            .persistent()
+            .set(&_ttl_key, &proposal);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
-            (symbol_short!("vote"), symbol_short!("cast")),
+            (symbol_short!("gov"), symbol_short!("voted")),
             (proposal_id, voter, power),
         );
     }
 
     /// Finalize a proposal after voting period
     pub fn finalize_proposal(env: Env, proposal_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         let mut proposal: Proposal = env
             .storage()
             .persistent()
@@ -278,9 +308,13 @@ impl GovernanceDaoContract {
             ProposalStatus::Rejected
         };
 
+        let _ttl_key = DataKey::Proposal(proposal_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Proposal(proposal_id), &proposal);
+            .set(&_ttl_key, &proposal);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 
         env.events().publish(
             (symbol_short!("proposal"), symbol_short!("finalized")),
@@ -290,6 +324,7 @@ impl GovernanceDaoContract {
 
     /// Mark proposal as executed (admin only)
     pub fn execute_proposal(env: Env, admin: Address, proposal_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {
@@ -309,13 +344,18 @@ impl GovernanceDaoContract {
         proposal.status = ProposalStatus::Executed;
         proposal.executed_at = Some(env.ledger().timestamp());
 
+        let _ttl_key = DataKey::Proposal(proposal_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Proposal(proposal_id), &proposal);
+            .set(&_ttl_key, &proposal);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     /// Cancel a proposal (proposer or admin)
     pub fn cancel_proposal(env: Env, caller: Address, proposal_id: u64) {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         caller.require_auth();
 
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
@@ -330,9 +370,13 @@ impl GovernanceDaoContract {
         }
 
         proposal.status = ProposalStatus::Cancelled;
+        let _ttl_key = DataKey::Proposal(proposal_id);
         env.storage()
             .persistent()
-            .set(&DataKey::Proposal(proposal_id), &proposal);
+            .set(&_ttl_key, &proposal);
+        env.storage()
+            .persistent()
+            .extend_ttl(&_ttl_key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
 
     // ============================================================
@@ -340,18 +384,21 @@ impl GovernanceDaoContract {
     // ============================================================
 
     pub fn get_proposal(env: Env, proposal_id: u64) -> Option<Proposal> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Proposal(proposal_id))
     }
 
     pub fn get_vote(env: Env, proposal_id: u64, voter: Address) -> Option<Vote> {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::Vote(proposal_id, voter))
     }
 
     pub fn has_voted(env: Env, proposal_id: u64, voter: Address) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .persistent()
             .get(&DataKey::HasVoted(proposal_id, voter))
@@ -359,9 +406,12 @@ impl GovernanceDaoContract {
     }
 
     pub fn get_proposal_count(env: Env) -> u64 {
+        env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         env.storage()
             .instance()
             .get(&DataKey::ProposalCounter)
             .unwrap_or(0)
     }
 }
+
+mod test;
