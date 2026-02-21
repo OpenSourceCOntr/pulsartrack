@@ -8,6 +8,9 @@ use soroban_sdk::{
     Address, Env, String,
 };
 
+#[cfg(test)]
+mod test;
+
 // ============================================================
 // Data Types
 // ============================================================
@@ -46,6 +49,7 @@ pub struct Proposal {
     pub threshold_pct: u32, // percentage to pass
     pub start_ledger: u32,
     pub end_ledger: u32,
+    pub end_time: u64, // timestamp when voting ends
     pub created_at: u64,
     pub executed_at: Option<u64>,
 }
@@ -68,6 +72,7 @@ pub enum DataKey {
     GovernanceToken,
     ProposalCounter,
     VotingPeriod,
+    GracePeriod,
     QuorumRequired,
     PassThreshold,
     ProposerMinTokens,
@@ -91,6 +96,7 @@ impl GovernanceDaoContract {
         admin: Address,
         governance_token: Address,
         voting_period: u32,     // in ledgers
+        grace_period: u64,      // in seconds
         quorum_required: i128,  // minimum tokens needed
         pass_threshold: u32,    // percentage (e.g., 51)
         proposer_min: i128,     // min tokens to create proposal
@@ -109,6 +115,9 @@ impl GovernanceDaoContract {
         env.storage()
             .instance()
             .set(&DataKey::VotingPeriod, &voting_period);
+        env.storage()
+            .instance()
+            .set(&DataKey::GracePeriod, &grace_period);
         env.storage()
             .instance()
             .set(&DataKey::QuorumRequired, &quorum_required);
@@ -154,6 +163,10 @@ impl GovernanceDaoContract {
             .unwrap_or(51);
 
         let start = env.ledger().sequence();
+        let created_at = env.ledger().timestamp();
+        // Estimate end_time: ~5s per ledger
+        let end_time = created_at + (voting_period as u64 * 5);
+
         let proposal = Proposal {
             proposer: proposer.clone(),
             title,
@@ -167,7 +180,8 @@ impl GovernanceDaoContract {
             threshold_pct: threshold,
             start_ledger: start,
             end_ledger: start + voting_period,
-            created_at: env.ledger().timestamp(),
+            end_time,
+            created_at,
             executed_at: None,
         };
 
@@ -256,6 +270,25 @@ impl GovernanceDaoContract {
 
         if proposal.status != ProposalStatus::Active {
             panic!("proposal not active");
+        }
+
+        let grace_period: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::GracePeriod)
+            .unwrap_or(0);
+        let now = env.ledger().timestamp();
+
+        if now > proposal.end_time + grace_period {
+            proposal.status = ProposalStatus::Rejected; // Auto-reject if expired
+            env.storage()
+                .persistent()
+                .set(&DataKey::Proposal(proposal_id), &proposal);
+            env.events().publish(
+                (symbol_short!("proposal"), symbol_short!("expired")),
+                (proposal_id, ProposalStatus::Rejected),
+            );
+            return;
         }
 
         if env.ledger().sequence() <= proposal.end_ledger {
@@ -363,5 +396,27 @@ impl GovernanceDaoContract {
             .instance()
             .get(&DataKey::ProposalCounter)
             .unwrap_or(0)
+    }
+
+    /// Compute live status of a proposal
+    pub fn get_proposal_status(env: Env, proposal_id: u64) -> ProposalStatus {
+        let proposal: Proposal = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Proposal(proposal_id))
+            .expect("proposal not found");
+
+        if proposal.status == ProposalStatus::Active {
+            let grace_period: u64 = env
+                .storage()
+                .instance()
+                .get(&DataKey::GracePeriod)
+                .unwrap_or(0);
+            let now = env.ledger().timestamp();
+            if now > proposal.end_time + grace_period {
+                return ProposalStatus::Expired;
+            }
+        }
+        proposal.status
     }
 }
