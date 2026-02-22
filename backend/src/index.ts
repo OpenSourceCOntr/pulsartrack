@@ -3,14 +3,28 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import Redis from 'ioredis';
 import { createServer } from 'http';
 import apiRoutes from './api/routes';
-import { errorHandler, rateLimit } from './middleware/auth';
+import { errorHandler, rateLimit, configureRateLimiters } from './middleware/auth';
 import { setupWebSocketServer } from './services/websocket-server';
 import { checkDbConnection } from './config/database';
+import prisma from './db/prisma';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '4000', 10);
+
+// Redis connection for rate limiting
+const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  enableOfflineQueue: false,
+  maxRetriesPerRequest: 1,
+});
+
+redisClient.on('connect', () => console.log('[Redis] Connected'));
+redisClient.on('error', (err) => console.error('[Redis] Error:', err.message));
+
+// Initialize Redis-backed rate limiters
+configureRateLimiters(redisClient);
 
 // Middleware
 app.use(helmet());
@@ -20,7 +34,7 @@ app.use(cors({
 }));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
-app.use(rateLimit(200, 60_000));
+app.use(rateLimit());
 
 // API routes
 app.use('/api', apiRoutes);
@@ -41,12 +55,28 @@ setupWebSocketServer(server);
 
 // Start server
 async function start() {
-  // Check DB (non-blocking)
+  // Verify database connection — fail hard in production
   const dbOk = await checkDbConnection();
   if (!dbOk) {
-    console.warn('[DB] Could not connect to PostgreSQL - running without DB');
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[DB] PostgreSQL connection failed — aborting in production');
+      process.exit(1);
+    }
+    console.warn('[DB] Could not connect to PostgreSQL — running without DB');
   } else {
     console.log('[DB] PostgreSQL connected');
+  }
+
+  // Verify Prisma client connectivity
+  try {
+    await prisma.$connect();
+    console.log('[DB] Prisma client connected');
+  } catch (err) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[DB] Prisma connection failed — aborting in production');
+      process.exit(1);
+    }
+    console.warn('[DB] Prisma client unavailable — running without ORM');
   }
 
   server.listen(PORT, () => {

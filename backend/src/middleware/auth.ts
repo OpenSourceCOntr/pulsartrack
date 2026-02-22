@@ -1,6 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Keypair } from '@stellar/stellar-sdk';
 import crypto from 'crypto';
+import { RateLimiterRedis } from 'rate-limiter-flexible';
+import type Redis from 'ioredis';
 
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const TOKEN_EXPIRY = 3600;
@@ -99,29 +101,77 @@ authRouter.get('/challenge', getChallenge);
 authRouter.post('/verify', verifySignature);
 
 /**
- * Middleware: Rate limiting by IP
+ * Redis-backed rate limiters
  */
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+let ipLimiter: RateLimiterRedis;
+let accountLimiter: RateLimiterRedis;
+let writeLimiter: RateLimiterRedis;
 
-export function rateLimit(maxRequests = 100, windowMs = 60_000) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+export function configureRateLimiters(redisClient: Redis): void {
+  // Per-IP: 100 requests per minute
+  ipLimiter = new RateLimiterRedis({
+    storeClient: redisClient,
+    keyPrefix: 'rl_ip',
+    points: 100,
+    duration: 60,
+  });
+
+  // Per-account: 50 requests per minute
+  accountLimiter = new RateLimiterRedis({
+    storeClient: redisClient,
+    keyPrefix: 'rl_acct',
+    points: 50,
+    duration: 60,
+  });
+
+  // Write endpoints: 10 per hour per account
+  writeLimiter = new RateLimiterRedis({
+    storeClient: redisClient,
+    keyPrefix: 'rl_write',
+    points: 10,
+    duration: 3600,
+  });
+}
+
+export function rateLimit() {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
-    const now = Date.now();
 
-    let entry = rateLimitMap.get(ip);
-    if (!entry || entry.resetAt < now) {
-      entry = { count: 1, resetAt: now + windowMs };
-      rateLimitMap.set(ip, entry);
-    } else {
-      entry.count++;
-    }
-
-    if (entry.count > maxRequests) {
+    try {
+      await ipLimiter.consume(ip);
+    } catch {
       res.status(429).json({ error: 'Too many requests' });
       return;
     }
 
+    const address = (req as any).stellarAddress;
+    if (address) {
+      try {
+        await accountLimiter.consume(address);
+      } catch {
+        res.status(429).json({ error: 'Account rate limit exceeded' });
+        return;
+      }
+    }
+
     next();
+  };
+}
+
+export function rateLimitWrite() {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const address = (req as any).stellarAddress;
+    if (!address) {
+      next();
+      return;
+    }
+
+    try {
+      await writeLimiter.consume(address);
+      next();
+    } catch {
+      res.status(429).json({ error: 'Write rate limit exceeded (10 per hour)' });
+    }
   };
 }
 

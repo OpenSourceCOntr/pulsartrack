@@ -3,10 +3,15 @@ import pool from '../config/database';
 import { callReadOnly, toAddressScVal } from '../services/soroban-client';
 import { CONTRACT_IDS } from '../config/stellar';
 import { requireAuth } from '../middleware/auth';
+import { validate } from '../middleware/validate';
 
 const router = Router();
 
-router.get('/leaderboard', async (req: Request, res: Response) => {
+router.get('/leaderboard', validate({
+  query: {
+    limit: { type: 'number', integer: true, min: 1, max: 100 },
+  },
+}), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
@@ -51,7 +56,12 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/register', requireAuth, async (req: Request, res: Response) => {
+router.post('/register', requireAuth, validate({
+  body: {
+    displayName: { type: 'string', required: true, minLength: 1, maxLength: 100 },
+    website: { type: 'string', maxLength: 500 },
+  },
+}), async (req: Request, res: Response) => {
   try {
     const address = (req as any).stellarAddress;
     const { displayName, website } = req.body;

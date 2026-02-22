@@ -1,0 +1,39 @@
+name: Deploy to Testnet
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install Stellar CLI
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          cargo install --locked stellar-cli --features opt
+
+      - name: Build contract WASMs
+        run: cargo build --release --target wasm32-unknown-unknown
+
+      - name: Run deployment script
+        run: ./scripts/deploy.sh
+        env:
+          STELLAR_NETWORK: testnet
+          STELLAR_IDENTITY: pulsartrack-deployer
+
+      - name: Commit deployment records
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add deployments/
+          git commit -m "chore: update deployment records [skip ci]" || echo "No changes to commit"
+          git push

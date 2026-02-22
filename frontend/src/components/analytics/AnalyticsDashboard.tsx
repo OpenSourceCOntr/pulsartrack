@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { Campaign } from '@/types/contracts';
-import { MetricsCard } from './MetricsCard';
-import { ImpressionChart } from './ImpressionChart';
-import { formatXlm, formatNumber } from '@/lib/display-utils';
+import { Campaign } from "@/types/contracts";
+import { MetricsCard } from "./MetricsCard";
+import { ImpressionChart } from "./ImpressionChart";
+import { formatXlm, formatNumber } from "@/lib/display-utils";
 
 interface AnalyticsDashboardProps {
   campaigns: Campaign[];
-  timeframe?: '7d' | '30d' | '90d';
-  onTimeframeChange?: (tf: '7d' | '30d' | '90d') => void;
+  timeframe?: "7d" | "30d" | "90d";
+  onTimeframeChange?: (tf: "7d" | "30d" | "90d") => void;
 }
 
 function buildChartData(campaigns: Campaign[], days: number) {
@@ -17,13 +17,17 @@ function buildChartData(campaigns: Campaign[], days: number) {
   const now = Date.now();
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now - i * 86400000);
-    const label = days <= 7
-      ? d.toLocaleDateString('en', { weekday: 'short' })
-      : `${d.getMonth() + 1}/${d.getDate()}`;
+    const label =
+      days <= 7
+        ? d.toLocaleDateString("en", { weekday: "short" })
+        : `${d.getMonth() + 1}/${d.getDate()}`;
     // Mock distribution of campaign stats across days
     const fraction = (1 + Math.sin(i * 0.5)) / 2; // wavy curve for demo
-    const totalImpressions = campaigns.reduce((acc, c) => acc + c.impressions, 0);
-    const totalClicks = campaigns.reduce((acc, c) => acc + c.clicks, 0);
+    const totalImpressions = campaigns.reduce(
+      (acc, c) => acc + Number(c.impressions),
+      0,
+    );
+    const totalClicks = campaigns.reduce((acc, c) => acc + Number(c.clicks), 0);
     points.push({
       label,
       impressions: Math.round((totalImpressions / days) * fraction),
@@ -35,19 +39,22 @@ function buildChartData(campaigns: Campaign[], days: number) {
 
 export function AnalyticsDashboard({
   campaigns,
-  timeframe = '30d',
+  timeframe = "30d",
   onTimeframeChange,
 }: AnalyticsDashboardProps) {
-  const totalImpressions = campaigns.reduce((a, c) => a + c.impressions, 0);
-  const totalClicks = campaigns.reduce((a, c) => a + c.clicks, 0);
-  const totalSpent = campaigns.reduce((a, c) => a + c.spent, 0n);
+  const totalImpressions = campaigns.reduce(
+    (a, c) => a + Number(c.impressions),
+    0,
+  );
+  const totalClicks = campaigns.reduce((a, c) => a + Number(c.clicks), 0);
+  const totalSpent = campaigns.reduce((a, c) => a + Number(c.spent), 0);
   const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
   const cpm =
     totalImpressions > 0
       ? (Number(totalSpent) / 1e7 / (totalImpressions / 1000)).toFixed(4)
-      : '0';
+      : "0";
 
-  const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
+  const days = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 90;
   const chartData = buildChartData(campaigns, days);
 
   return (
@@ -57,12 +64,14 @@ export function AnalyticsDashboard({
         <h2 className="text-white font-semibold text-lg">Analytics</h2>
         {onTimeframeChange && (
           <div className="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-1">
-            {(['7d', '30d', '90d'] as const).map((tf) => (
+            {(["7d", "30d", "90d"] as const).map((tf) => (
               <button
                 key={tf}
                 onClick={() => onTimeframeChange(tf)}
                 className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  timeframe === tf ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
+                  timeframe === tf
+                    ? "bg-indigo-600 text-white"
+                    : "text-gray-400 hover:text-white"
                 }`}
               >
                 {tf}
@@ -111,7 +120,9 @@ export function AnalyticsDashboard({
       {/* Campaign breakdown */}
       {campaigns.length > 0 && (
         <div className="bg-gray-800 border border-gray-700 rounded-xl p-4">
-          <h3 className="text-sm font-medium text-gray-300 mb-3">Campaign Breakdown</h3>
+          <h3 className="text-sm font-medium text-gray-300 mb-3">
+            Campaign Breakdown
+          </h3>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-gray-500 border-b border-gray-700">
@@ -126,19 +137,31 @@ export function AnalyticsDashboard({
               {campaigns.map((c) => {
                 const campaignCtr =
                   c.impressions > 0
-                    ? ((c.clicks / c.impressions) * 100).toFixed(2)
-                    : '0.00';
+                    ? (
+                        (Number(c.clicks) / Number(c.impressions)) *
+                        100
+                      ).toFixed(2)
+                    : "0.00";
                 return (
-                  <tr key={c.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                    <td className="py-2 text-white truncate max-w-[160px]">{c.title}</td>
+                  <tr
+                    key={c.campaign_id}
+                    className="border-b border-gray-700/50 hover:bg-gray-700/30"
+                  >
+                    <td className="py-2 text-white truncate max-w-[160px]">
+                      {c.title}
+                    </td>
                     <td className="py-2 text-right text-gray-300">
                       {formatNumber(c.impressions)}
                     </td>
                     <td className="py-2 text-right text-gray-300">
                       {formatNumber(c.clicks)}
                     </td>
-                    <td className="py-2 text-right text-cyan-400">{campaignCtr}%</td>
-                    <td className="py-2 text-right text-gray-300">{formatXlm(c.spent)}</td>
+                    <td className="py-2 text-right text-cyan-400">
+                      {campaignCtr}%
+                    </td>
+                    <td className="py-2 text-right text-gray-300">
+                      {formatXlm(c.spent)}
+                    </td>
                   </tr>
                 );
               })}
