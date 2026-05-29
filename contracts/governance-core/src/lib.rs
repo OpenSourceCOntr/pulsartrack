@@ -96,6 +96,12 @@ impl GovernanceCoreContract {
             panic!("unauthorized");
         }
 
+        if let Some(exp) = expires_at {
+            if exp <= env.ledger().timestamp() {
+                panic!("expires_at must be in the future");
+            }
+        }
+
         let grant = RoleGrant {
             role: role.clone(),
             granted_by: admin,
