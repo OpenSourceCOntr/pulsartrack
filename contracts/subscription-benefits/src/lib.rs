@@ -137,6 +137,9 @@ impl SubscriptionBenefitsContract {
 
         let now = env.ledger().timestamp();
         let period_secs = 30 * 24 * 3600u64;
+        let period_reset_at = now
+            .checked_add(period_secs)
+            .expect("period_reset_at overflow");
 
         let key = DataKey::BenefitUsage(subscriber.clone(), benefit_id);
         let mut usage: BenefitUsage =
@@ -148,13 +151,13 @@ impl SubscriptionBenefitsContract {
                     benefit_id,
                     uses_this_period: 0,
                     max_uses_per_period: 100,
-                    period_reset_at: now + period_secs,
+                    period_reset_at,
                 });
 
         // Reset period if expired
         if now > usage.period_reset_at {
             usage.uses_this_period = 0;
-            usage.period_reset_at = now + period_secs;
+            usage.period_reset_at = period_reset_at;
         }
 
         if usage.uses_this_period >= usage.max_uses_per_period {
