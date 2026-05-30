@@ -101,8 +101,8 @@ impl LiquidityPoolContract {
             .get(&DataKey::TokenAddress)
             .unwrap();
         let token_client = token::Client::new(&env, &token_addr);
-        token_client.transfer(&provider, &env.current_contract_address(), &amount);
 
+        // --- Effects: compute shares and commit all state before the external call ---
         let mut pool: PoolState = env.storage().instance().get(&DataKey::PoolState).unwrap();
         let total_shares: i128 = env
             .storage()
@@ -124,10 +124,11 @@ impl LiquidityPoolContract {
             .instance()
             .set(&DataKey::TotalShares, &(total_shares + shares));
 
+        let provider_key = DataKey::Provider(provider.clone());
         let mut position: ProviderPosition = env
             .storage()
             .persistent()
-            .get(&DataKey::Provider(provider.clone()))
+            .get(&provider_key)
             .unwrap_or(ProviderPosition {
                 provider: provider.clone(),
                 deposited: 0,
@@ -138,13 +139,15 @@ impl LiquidityPoolContract {
 
         position.deposited += amount;
         position.shares += shares;
-        let _ttl_key = DataKey::Provider(provider.clone());
-        env.storage().persistent().set(&_ttl_key, &position);
+        env.storage().persistent().set(&provider_key, &position);
         env.storage().persistent().extend_ttl(
-            &_ttl_key,
+            &provider_key,
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        // --- Interaction: pull tokens from provider after all state is committed ---
+        token_client.transfer(&provider, &env.current_contract_address(), &amount);
 
         env.events().publish(
             (symbol_short!("pool"), symbol_short!("deposit")),
