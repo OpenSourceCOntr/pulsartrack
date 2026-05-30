@@ -357,3 +357,14 @@ fn test_get_publisher_earnings_nonexistent_returns_none() {
 
     assert!(client.get_publisher_earnings(&unknown).is_none());
 }
+
+#[test]
+fn test_set_max_pending_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _, _) = setup(&env);
+
+    client.set_max_pending_amount(&admin, &2_000_000i128);
+
+    assert_eq!(client.get_max_pending_amount(), 2_000_000);
+}

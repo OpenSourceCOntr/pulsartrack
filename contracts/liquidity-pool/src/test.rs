@@ -303,7 +303,7 @@ fn test_repay_partial_amount() {
 }
 
 #[test]
-#[should_panic(expected = "no shares in pool")]
+#[should_panic(expected = "shares must be positive")]
 fn test_withdraw_when_total_shares_zero() {
     let env = Env::default();
     env.mock_all_auths();
@@ -316,6 +316,20 @@ fn test_withdraw_when_total_shares_zero() {
     c.withdraw(&provider, &shares);
 
     // Pool now has total_shares == 0; attempting to withdraw 0 shares must panic
+    c.withdraw(&provider, &0i128);
+}
+
+#[test]
+#[should_panic(expected = "shares must be positive")]
+fn test_withdraw_rejects_zero_shares() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, _, _, token) = setup(&env);
+    let provider = Address::generate(&env);
+
+    mint(&env, &token, &provider, 1_000_000);
+    c.deposit(&provider, &100_000i128);
+
     c.withdraw(&provider, &0i128);
 }
 
@@ -339,7 +353,7 @@ fn test_borrow_utilization_rate_not_calculated_when_liquidity_zero() {
 fn test_accrue_interest() {
     let env = Env::default();
     env.mock_all_auths();
-    let (c, _, _, token) = setup(&env);
+    let (c, admin, _, token) = setup(&env);
     let provider = Address::generate(&env);
     let borrower = Address::generate(&env);
 
@@ -355,13 +369,30 @@ fn test_accrue_interest() {
     });
 
     // Accrue interest
-    let interest = c.accrue_interest(&1u64);
+    let interest = c.accrue_interest(&admin, &1u64);
 
     // At 5% annual rate on 100,000: interest should be ~5,000
     assert!(interest >= 4_900 && interest <= 5_100);
 
     let borrow = c.get_borrow(&1u64).unwrap();
     assert_eq!(borrow.interest_accrued, interest);
+}
+
+#[test]
+#[should_panic(expected = "unauthorized")]
+fn test_accrue_interest_rejects_unauthorized_caller() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, _, _, token) = setup(&env);
+    let provider = Address::generate(&env);
+    let borrower = Address::generate(&env);
+    let stranger = Address::generate(&env);
+
+    mint(&env, &token, &provider, 1_000_000);
+    c.deposit(&provider, &500_000i128);
+    c.borrow(&borrower, &1u64, &100_000i128, &86_400u64);
+
+    c.accrue_interest(&stranger, &1u64);
 }
 
 #[test]
@@ -437,7 +468,7 @@ fn test_interest_calculation_over_time() {
         li.timestamp += 15_778_800; // ~6 months
     });
 
-    let interest_6mo = c.accrue_interest(&1u64);
+    let interest_6mo = c.accrue_interest(&borrower, &1u64);
     assert!(interest_6mo >= 2_400 && interest_6mo <= 2_600); // ~2.5% of 100k
 
     // Check interest after another 6 months (1 year total)
@@ -445,7 +476,7 @@ fn test_interest_calculation_over_time() {
         li.timestamp += 15_778_800;
     });
 
-    let interest_1yr = c.accrue_interest(&1u64);
+    let interest_1yr = c.accrue_interest(&borrower, &1u64);
     assert!(interest_1yr >= 4_900 && interest_1yr <= 5_100); // ~5% of 100k
 }
 

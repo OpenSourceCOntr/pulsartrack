@@ -160,6 +160,10 @@ impl LiquidityPoolContract {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         provider.require_auth();
 
+        if shares <= 0 {
+            panic!("shares must be positive");
+        }
+
         let mut position: ProviderPosition = env
             .storage()
             .persistent()
@@ -295,16 +299,22 @@ impl LiquidityPoolContract {
     }
 
     /// Accrue interest on a borrow position
-    pub fn accrue_interest(env: Env, campaign_id: u64) -> i128 {
+    pub fn accrue_interest(env: Env, caller: Address, campaign_id: u64) -> i128 {
         env.storage()
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        caller.require_auth();
 
         let mut borrow: BorrowPosition = env
             .storage()
             .persistent()
             .get(&DataKey::Borrow(campaign_id))
             .expect("borrow not found");
+
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if caller != admin && caller != borrow.borrower {
+            panic!("unauthorized");
+        }
 
         let pool: PoolState = env.storage().instance().get(&DataKey::PoolState).unwrap();
 
