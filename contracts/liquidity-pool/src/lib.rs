@@ -54,6 +54,8 @@ const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
 const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
 const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
 const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+// Maximum fraction of total_liquidity a single borrow transaction may draw (25%).
+const MAX_BORROW_FRACTION_BPS: u32 = 2_500;
 
 #[contract]
 pub struct LiquidityPoolContract;
@@ -225,11 +227,9 @@ impl LiquidityPoolContract {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         borrower.require_auth();
 
-        let mut pool: PoolState = env.storage().instance().get(&DataKey::PoolState).unwrap();
-        let available = pool.total_liquidity - pool.total_borrowed;
-
-        if amount > available {
-            panic!("insufficient liquidity");
+        // --- Checks: input validation before any storage read (fail-fast) ---
+        if amount <= 0 {
+            panic!("borrow amount must be positive");
         }
 
         if duration_secs == 0 {
@@ -244,6 +244,20 @@ impl LiquidityPoolContract {
             panic!("already has borrow");
         }
 
+        // --- Pool state checks (single storage read shared by both guards) ---
+        let mut pool: PoolState = env.storage().instance().get(&DataKey::PoolState).unwrap();
+        let available = pool.total_liquidity - pool.total_borrowed;
+
+        if amount > available {
+            panic!("insufficient liquidity");
+        }
+
+        let max_borrow = (pool.total_liquidity * MAX_BORROW_FRACTION_BPS as i128) / 10_000;
+        if amount > max_borrow {
+            panic!("borrow exceeds per-transaction limit");
+        }
+
+        // --- Effects ---
         pool.total_borrowed += amount;
         if pool.total_liquidity > 0 {
             pool.utilization_rate = ((pool.total_borrowed * 100) / pool.total_liquidity) as u32;
@@ -263,14 +277,15 @@ impl LiquidityPoolContract {
                 .expect("due_at timestamp overflow"),
         };
 
-        let _ttl_key = DataKey::Borrow(campaign_id);
-        env.storage().persistent().set(&_ttl_key, &borrow);
+        let borrow_key = DataKey::Borrow(campaign_id);
+        env.storage().persistent().set(&borrow_key, &borrow);
         env.storage().persistent().extend_ttl(
-            &_ttl_key,
+            &borrow_key,
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
 
+        // --- Interaction ---
         let token_addr: Address = env
             .storage()
             .instance()
