@@ -46,8 +46,8 @@ pub enum DataKey {
 
 const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
 const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
-const PERSISTENT_LIFETIME_THRESHOLD: u32 = 34_560;
-const PERSISTENT_BUMP_AMOUNT: u32 = 259_200;
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
+const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
 
 #[contract]
 pub struct GovernanceCoreContract;
@@ -154,17 +154,12 @@ impl GovernanceCoreContract {
         env.storage()
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
-        if let Some(grant) = env
-            .storage()
-            .persistent()
-            .get::<DataKey, RoleGrant>(&DataKey::RoleGrant(account.clone(), role.clone()))
-        {
+        let _ttl_key = DataKey::RoleGrant(account.clone(), role.clone());
+        if let Some(grant) = env.storage().persistent().get::<DataKey, RoleGrant>(&_ttl_key) {
             if let Some(expires) = grant.expires_at {
                 if expires <= env.ledger().timestamp() {
                     // Expired — remove from storage to avoid unbounded rent accumulation
-                    env.storage()
-                        .persistent()
-                        .remove(&DataKey::RoleGrant(account, role.clone()));
+                    env.storage().persistent().remove(&_ttl_key);
 
                     let count: u32 = env
                         .storage()
@@ -178,8 +173,18 @@ impl GovernanceCoreContract {
                     }
                     return false;
                 }
+                env.storage().persistent().extend_ttl(
+                    &_ttl_key,
+                    PERSISTENT_LIFETIME_THRESHOLD,
+                    PERSISTENT_BUMP_AMOUNT,
+                );
                 true
             } else {
+                env.storage().persistent().extend_ttl(
+                    &_ttl_key,
+                    PERSISTENT_LIFETIME_THRESHOLD,
+                    PERSISTENT_BUMP_AMOUNT,
+                );
                 true
             }
         } else {
@@ -215,9 +220,17 @@ impl GovernanceCoreContract {
         env.storage()
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
-        env.storage()
-            .persistent()
-            .get(&DataKey::RoleGrant(account, role))
+        let _ttl_key = DataKey::RoleGrant(account, role);
+        if let Some(grant) = env.storage().persistent().get::<DataKey, RoleGrant>(&_ttl_key) {
+            env.storage().persistent().extend_ttl(
+                &_ttl_key,
+                PERSISTENT_LIFETIME_THRESHOLD,
+                PERSISTENT_BUMP_AMOUNT,
+            );
+            Some(grant)
+        } else {
+            None
+        }
     }
 
     pub fn propose_admin(env: Env, current_admin: Address, new_admin: Address) {
@@ -232,6 +245,17 @@ impl GovernanceCoreContract {
 
     pub fn accept_admin(env: Env, new_admin: Address) {
         pulsar_common_admin::accept_admin(&env, &DataKey::Admin, &DataKey::PendingAdmin, new_admin);
+    }
+
+    pub fn transfer_admin(env: Env, current_admin: Address, new_admin: Address) {
+        current_admin.require_auth();
+        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if current_admin != stored_admin {
+            panic!("unauthorized");
+        }
+
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+        env.storage().instance().remove(&DataKey::PendingAdmin);
     }
 }
 

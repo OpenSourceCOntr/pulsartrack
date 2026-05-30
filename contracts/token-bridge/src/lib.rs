@@ -144,21 +144,6 @@ impl TokenBridgeContract {
             / 10_000;
         let net_amount = amount - bridge_fee;
 
-        // Lock tokens in bridge contract
-        let token_client = token::Client::new(&env, &token);
-        token_client.transfer(&sender, &env.current_contract_address(), &amount);
-
-        // Update daily volume for this chain
-        let new_daily_volume = current_daily_volume + amount;
-        env.storage()
-            .persistent()
-            .set(&daily_volume_key, &new_daily_volume);
-        env.storage().persistent().extend_ttl(
-            &daily_volume_key,
-            PERSISTENT_LIFETIME_THRESHOLD,
-            PERSISTENT_BUMP_AMOUNT,
-        );
-
         let counter: u64 = env
             .storage()
             .instance()
@@ -166,12 +151,13 @@ impl TokenBridgeContract {
             .unwrap_or(0);
         let deposit_id = counter + 1;
 
+        // Persist bridge state before the external token transfer.
         let deposit = BridgeDeposit {
             deposit_id,
             sender: sender.clone(),
             recipient_chain,
             recipient_address,
-            token,
+            token: token.clone(),
             amount: net_amount,
             bridge_fee,
             status: BridgeStatus::Pending,
@@ -180,8 +166,17 @@ impl TokenBridgeContract {
             tx_hash: None,
         };
 
+        let new_daily_volume = current_daily_volume + amount;
+        env.storage()
+            .persistent()
+            .set(&daily_volume_key, &new_daily_volume);
         let _ttl_key = DataKey::Deposit(deposit_id);
         env.storage().persistent().set(&_ttl_key, &deposit);
+        env.storage().persistent().extend_ttl(
+            &daily_volume_key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
         env.storage().persistent().extend_ttl(
             &_ttl_key,
             PERSISTENT_LIFETIME_THRESHOLD,
@@ -190,6 +185,10 @@ impl TokenBridgeContract {
         env.storage()
             .instance()
             .set(&DataKey::DepositCounter, &deposit_id);
+
+        // Lock tokens in bridge contract after state is committed.
+        let token_client = token::Client::new(&env, &token);
+        token_client.transfer(&sender, &env.current_contract_address(), &amount);
 
         env.events().publish(
             (symbol_short!("bridge"), symbol_short!("deposit")),
