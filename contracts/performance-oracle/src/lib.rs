@@ -92,6 +92,20 @@ impl PerformanceOracleContract {
         );
     }
 
+    pub fn revoke_attester(env: Env, admin: Address, attester: Address) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        admin.require_auth();
+        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if admin != stored_admin {
+            panic!("unauthorized");
+        }
+
+        let _ttl_key = DataKey::Attester(attester);
+        env.storage().persistent().remove(&_ttl_key);
+    }
+
     pub fn submit_attestation(
         env: Env,
         attester: Address,
@@ -301,9 +315,10 @@ impl PerformanceOracleContract {
         } else {
             0
         };
-        
+
         let quality_deviation_bps = if avg_quality_score > 0 {
-            ((max_quality_score - min_quality_score) as u64 * 10000 / avg_quality_score as u64) as u32
+            ((max_quality_score - min_quality_score) as u64 * 10000 / avg_quality_score as u64)
+                as u32
         } else {
             0
         };

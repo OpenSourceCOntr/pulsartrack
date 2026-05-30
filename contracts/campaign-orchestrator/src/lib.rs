@@ -618,7 +618,7 @@ impl CampaignOrchestratorContract {
         );
     }
 
-    /// Cancel campaign and refund remaining budget (if refundable)
+    /// Cancel campaign and refund remaining budget when refundable
     pub fn cancel_campaign(env: Env, advertiser: Address, campaign_id: u64) {
         env.storage()
             .instance()
@@ -633,10 +633,6 @@ impl CampaignOrchestratorContract {
 
         if campaign.advertiser != advertiser {
             panic!("unauthorized");
-        }
-
-        if !campaign.refundable {
-            panic!("campaign not refundable");
         }
 
         let refund = campaign.remaining_budget;
@@ -669,7 +665,7 @@ impl CampaignOrchestratorContract {
             );
         }
 
-        if refund > 0 {
+        if campaign.refundable && refund > 0 {
             let token_addr: Address = env
                 .storage()
                 .instance()
