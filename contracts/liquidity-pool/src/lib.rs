@@ -258,7 +258,9 @@ impl LiquidityPoolContract {
             borrowed: amount,
             interest_accrued: 0,
             borrowed_at: now,
-            due_at: now + duration_secs,
+            due_at: now
+                .checked_add(duration_secs)
+                .expect("due_at timestamp overflow"),
         };
 
         let _ttl_key = DataKey::Borrow(campaign_id);
