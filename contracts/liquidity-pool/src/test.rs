@@ -200,13 +200,13 @@ fn test_multiple_borrows_with_interest() {
     // Provider deposits 500,000
     c.deposit(&provider, &500_000i128);
 
-    // Two borrowers borrow
+    // Two borrowers each borrow 100,000 (20% of pool — within the 25% per-tx cap)
     c.borrow(&borrower1, &1u64, &100_000i128, &86_400u64);
-    c.borrow(&borrower2, &2u64, &150_000i128, &86_400u64);
+    c.borrow(&borrower2, &2u64, &100_000i128, &86_400u64);
 
     let pool_after_borrows = c.get_pool_state();
     assert_eq!(pool_after_borrows.total_liquidity, 500_000);
-    assert_eq!(pool_after_borrows.total_borrowed, 250_000);
+    assert_eq!(pool_after_borrows.total_borrowed, 200_000);
 
     // Advance time by 1 year
     env.ledger().with_mut(|li| {
@@ -220,22 +220,22 @@ fn test_multiple_borrows_with_interest() {
     assert!(
         pool_after_first.total_liquidity >= 504_400 && pool_after_first.total_liquidity <= 504_600
     );
-    assert_eq!(pool_after_first.total_borrowed, 150_000);
+    assert_eq!(pool_after_first.total_borrowed, 100_000);
     assert!(pool_after_first.interest_reserve >= 490 && pool_after_first.interest_reserve <= 510);
 
-    // Second borrower repays with interest (~5% of 150k = ~7.5k)
-    // 10% reserve → ~750 to protocol, ~6750 to lenders
-    c.repay(&borrower2, &2u64, &160_000i128);
+    // Second borrower repays with interest (~5% of 100k = ~5k)
+    // 10% reserve → ~500 to protocol, ~4500 to lenders
+    c.repay(&borrower2, &2u64, &110_000i128);
     let pool_after_second = c.get_pool_state();
     assert_eq!(pool_after_second.total_borrowed, 0);
-    // Total lender yield: ~4500 + ~6750 = ~11,250 added to liquidity
+    // Total lender yield: ~4500 + ~4500 = ~9,000 added to liquidity
     assert!(
-        pool_after_second.total_liquidity >= 511_000
-            && pool_after_second.total_liquidity <= 511_500
+        pool_after_second.total_liquidity >= 508_900
+            && pool_after_second.total_liquidity <= 509_100
     );
-    // Total protocol reserve: ~500 + ~750 = ~1,250
+    // Total protocol reserve: ~500 + ~500 = ~1,000
     assert!(
-        pool_after_second.interest_reserve >= 1_200 && pool_after_second.interest_reserve <= 1_300
+        pool_after_second.interest_reserve >= 990 && pool_after_second.interest_reserve <= 1_010
     );
 }
 
@@ -334,19 +334,14 @@ fn test_withdraw_rejects_zero_shares() {
 }
 
 #[test]
-fn test_borrow_utilization_rate_not_calculated_when_liquidity_zero() {
-    // When total_liquidity is 0, borrow() must not panic with division by zero.
-    // Any non-zero borrow amount is caught earlier by "insufficient liquidity",
-    // so we verify the borrow with amount=0 leaves utilization_rate unchanged.
+#[should_panic(expected = "borrow amount must be positive")]
+fn test_borrow_rejects_zero_amount() {
+    // amount=0 is invalid; the positivity guard must fire before any pool read.
     let env = Env::default();
     env.mock_all_auths();
     let (c, _, _, _) = setup(&env);
     let borrower = Address::generate(&env);
-
-    // No liquidity deposited; borrow 0 should succeed without dividing by zero
     c.borrow(&borrower, &1u64, &0i128, &86_400u64);
-    let pool = c.get_pool_state();
-    assert_eq!(pool.utilization_rate, 0); // unchanged, no division attempted
 }
 
 #[test]
@@ -541,4 +536,49 @@ fn test_lender_earns_yield_on_withdrawal() {
     // Withdrawing all shares should return ~504,500
     let withdrawn = c.withdraw(&provider, &shares);
     assert!(withdrawn >= 504_400 && withdrawn <= 504_600);
+}
+
+#[test]
+#[should_panic(expected = "borrow amount must be positive")]
+fn test_borrow_rejects_negative_amount() {
+    // Negative amount would corrupt pool.total_borrowed via wrapping addition.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, _, _, token) = setup(&env);
+    let provider = Address::generate(&env);
+    let borrower = Address::generate(&env);
+    mint(&env, &token, &provider, 1_000_000);
+    c.deposit(&provider, &500_000i128);
+    c.borrow(&borrower, &1u64, &-1i128, &86_400u64);
+}
+
+#[test]
+#[should_panic(expected = "borrow exceeds per-transaction limit")]
+fn test_borrow_rejects_exceeding_per_tx_cap() {
+    // Pool: 500,000; 25% cap = 125,000; borrowing 125,001 must be rejected.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, _, _, token) = setup(&env);
+    let provider = Address::generate(&env);
+    let borrower = Address::generate(&env);
+    mint(&env, &token, &provider, 1_000_000);
+    c.deposit(&provider, &500_000i128);
+    c.borrow(&borrower, &1u64, &125_001i128, &86_400u64);
+}
+
+#[test]
+fn test_borrow_at_exactly_per_tx_cap() {
+    // Pool: 500,000; 25% cap = 125,000; borrowing exactly 125,000 must succeed.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, _, _, token) = setup(&env);
+    let provider = Address::generate(&env);
+    let borrower = Address::generate(&env);
+    mint(&env, &token, &provider, 1_000_000);
+    c.deposit(&provider, &500_000i128);
+    c.borrow(&borrower, &1u64, &125_000i128, &86_400u64);
+    let b = c.get_borrow(&1u64).unwrap();
+    assert_eq!(b.borrowed, 125_000);
+    let pool = c.get_pool_state();
+    assert_eq!(pool.total_borrowed, 125_000);
 }
