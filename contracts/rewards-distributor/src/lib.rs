@@ -143,6 +143,9 @@ impl RewardsDistributorContract {
         if admin != stored_admin {
             panic!("unauthorized");
         }
+        if amount <= 0 {
+            panic!("distribution amount must be positive");
+        }
 
         let mut program: RewardProgram = env
             .storage()

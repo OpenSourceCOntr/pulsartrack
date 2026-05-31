@@ -87,6 +87,40 @@ fn test_distribute_rewards() {
 }
 
 #[test]
+#[should_panic(expected = "distribution amount must be positive")]
+fn test_distribute_rewards_rejects_negative_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin, _, _) = setup(&env);
+    let recipient = Address::generate(&env);
+    c.create_program(
+        &admin,
+        &s(&env, "Staking"),
+        &1_000_000i128,
+        &100i128,
+        &10_000u32,
+    );
+    c.distribute_rewards(&admin, &recipient, &-5_000i128, &1u32);
+}
+
+#[test]
+#[should_panic(expected = "distribution amount must be positive")]
+fn test_distribute_rewards_rejects_zero_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin, _, _) = setup(&env);
+    let recipient = Address::generate(&env);
+    c.create_program(
+        &admin,
+        &s(&env, "Staking"),
+        &1_000_000i128,
+        &100i128,
+        &10_000u32,
+    );
+    c.distribute_rewards(&admin, &recipient, &0i128, &1u32);
+}
+
+#[test]
 fn test_get_program_nonexistent() {
     let env = Env::default();
     env.mock_all_auths();
