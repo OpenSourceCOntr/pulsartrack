@@ -186,7 +186,7 @@ impl GovernanceTokenContract {
             let _ttl_key = DataKey::DelegatedPower(delegation.delegate);
             env.storage()
                 .persistent()
-                .set(&_ttl_key, &(delegate_power - amount));
+                .set(&_ttl_key, &delegate_power.saturating_sub(amount));
             env.storage().persistent().extend_ttl(
                 &_ttl_key,
                 PERSISTENT_LIFETIME_THRESHOLD,
@@ -208,6 +208,28 @@ impl GovernanceTokenContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        let to_delegation = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Delegation>(&DataKey::Delegation(to.clone()));
+
+        if let Some(delegation) = to_delegation {
+            let delegate_power: i128 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::DelegatedPower(delegation.delegate.clone()))
+                .unwrap_or(0);
+            let _ttl_key = DataKey::DelegatedPower(delegation.delegate);
+            env.storage()
+                .persistent()
+                .set(&_ttl_key, &(delegate_power + amount));
+            env.storage().persistent().extend_ttl(
+                &_ttl_key,
+                PERSISTENT_LIFETIME_THRESHOLD,
+                PERSISTENT_BUMP_AMOUNT,
+            );
+        }
 
         env.events()
             .publish((symbol_short!("transfer"),), (from, to, amount));
@@ -288,7 +310,7 @@ impl GovernanceTokenContract {
             let _ttl_key = DataKey::DelegatedPower(delegation.delegate);
             env.storage()
                 .persistent()
-                .set(&_ttl_key, &(delegate_power - amount));
+                .set(&_ttl_key, &delegate_power.saturating_sub(amount));
             env.storage().persistent().extend_ttl(
                 &_ttl_key,
                 PERSISTENT_LIFETIME_THRESHOLD,
@@ -310,6 +332,28 @@ impl GovernanceTokenContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        let to_delegation = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Delegation>(&DataKey::Delegation(to.clone()));
+
+        if let Some(delegation) = to_delegation {
+            let delegate_power: i128 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::DelegatedPower(delegation.delegate.clone()))
+                .unwrap_or(0);
+            let _ttl_key = DataKey::DelegatedPower(delegation.delegate);
+            env.storage()
+                .persistent()
+                .set(&_ttl_key, &(delegate_power + amount));
+            env.storage().persistent().extend_ttl(
+                &_ttl_key,
+                PERSISTENT_LIFETIME_THRESHOLD,
+                PERSISTENT_BUMP_AMOUNT,
+            );
+        }
     }
 
     /// Approve token spending
@@ -321,6 +365,10 @@ impl GovernanceTokenContract {
 
         if amount < 0 {
             panic!("allowance amount must be non-negative");
+        }
+
+        if expiry <= env.ledger().sequence() {
+            panic!("expiry must be a future ledger sequence");
         }
 
         let _ttl_key = DataKey::Allowance(owner, spender);
@@ -363,7 +411,8 @@ impl GovernanceTokenContract {
             .get(&DataKey::TotalSupply)
             .unwrap_or(0);
 
-        if current_supply + amount > MAX_SUPPLY {
+        let new_supply = current_supply.checked_add(amount).expect("supply overflow");
+        if new_supply > MAX_SUPPLY {
             panic!("exceeds max supply");
         }
 
@@ -372,7 +421,7 @@ impl GovernanceTokenContract {
             .persistent()
             .get(&DataKey::Balance(recipient.clone()))
             .unwrap_or(0);
-        let _ttl_key = DataKey::Balance(recipient);
+        let _ttl_key = DataKey::Balance(recipient.clone());
         env.storage()
             .persistent()
             .set(&_ttl_key, &(balance + amount));
@@ -381,6 +430,28 @@ impl GovernanceTokenContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        let recipient_delegation = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Delegation>(&DataKey::Delegation(recipient.clone()));
+
+        if let Some(delegation) = recipient_delegation {
+            let delegate_power: i128 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::DelegatedPower(delegation.delegate.clone()))
+                .unwrap_or(0);
+            let _ttl_key = DataKey::DelegatedPower(delegation.delegate);
+            env.storage()
+                .persistent()
+                .set(&_ttl_key, &(delegate_power + amount));
+            env.storage().persistent().extend_ttl(
+                &_ttl_key,
+                PERSISTENT_LIFETIME_THRESHOLD,
+                PERSISTENT_BUMP_AMOUNT,
+            );
+        }
         env.storage()
             .instance()
             .set(&DataKey::TotalSupply, &(current_supply + amount));

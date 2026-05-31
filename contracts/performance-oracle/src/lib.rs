@@ -42,6 +42,7 @@ pub enum DataKey {
     Attestation(u64, Address),       // campaign_id, attester
     AttestationCount(u64),           // campaign_id
     Consensus(u64),                  // campaign_id
+    ConsensusFinalized(u64),         // campaign_id
     CampaignAttesterIndex(u64, u32), // campaign_id, index -> Address
 }
 
@@ -92,6 +93,20 @@ impl PerformanceOracleContract {
         );
     }
 
+    pub fn revoke_attester(env: Env, admin: Address, attester: Address) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        admin.require_auth();
+        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if admin != stored_admin {
+            panic!("unauthorized");
+        }
+
+        let _ttl_key = DataKey::Attester(attester);
+        env.storage().persistent().remove(&_ttl_key);
+    }
+
     pub fn submit_attestation(
         env: Env,
         attester: Address,
@@ -115,6 +130,14 @@ impl PerformanceOracleContract {
 
         if !is_auth {
             panic!("not authorized attester");
+        }
+
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::ConsensusFinalized(campaign_id))
+        {
+            panic!("consensus already finalized");
         }
 
         if env
@@ -189,9 +212,6 @@ impl PerformanceOracleContract {
             PERSISTENT_BUMP_AMOUNT,
         );
 
-        // Attempt to build consensus with actual averaging
-        Self::_try_build_consensus(&env, campaign_id, count + 1);
-
         env.events().publish(
             (symbol_short!("oracle"), symbol_short!("attested")),
             campaign_id,
@@ -230,15 +250,60 @@ impl PerformanceOracleContract {
             .unwrap_or(0)
     }
 
-    fn _try_build_consensus(env: &Env, campaign_id: u64, total_attesters: u32) {
+    pub fn finalize_consensus(env: Env, admin: Address, campaign_id: u64) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        admin.require_auth();
+        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if admin != stored_admin {
+            panic!("unauthorized");
+        }
+
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::ConsensusFinalized(campaign_id))
+        {
+            panic!("consensus already finalized");
+        }
+
+        if !Self::_try_build_consensus(&env, campaign_id) {
+            panic!("consensus not ready");
+        }
+
+        let _ttl_key = DataKey::ConsensusFinalized(campaign_id);
+        env.storage().persistent().set(&_ttl_key, &true);
+        env.storage().persistent().extend_ttl(
+            &_ttl_key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+    }
+
+    fn _try_build_consensus(env: &Env, campaign_id: u64) -> bool {
         let min_attesters: u32 = env
             .storage()
             .instance()
             .get(&DataKey::MinAttesters)
             .unwrap_or(3);
 
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::ConsensusFinalized(campaign_id))
+        {
+            return false;
+        }
+
+        let total_attesters: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AttestationCount(campaign_id))
+            .unwrap_or(0);
+
         if total_attesters == 0 || total_attesters < min_attesters {
-            return;
+            return false;
         }
 
         // Compute actual averages by reading all attestations
@@ -301,9 +366,10 @@ impl PerformanceOracleContract {
         } else {
             0
         };
-        
+
         let quality_deviation_bps = if avg_quality_score > 0 {
-            ((max_quality_score - min_quality_score) as u64 * 10000 / avg_quality_score as u64) as u32
+            ((max_quality_score - min_quality_score) as u64 * 10000 / avg_quality_score as u64)
+                as u32
         } else {
             0
         };
@@ -314,7 +380,7 @@ impl PerformanceOracleContract {
                 (symbol_short!("oracle"), symbol_short!("variance")),
                 (campaign_id, fraud_deviation_bps),
             );
-            return;
+            return false;
         }
 
         if quality_deviation_bps > MAX_DEVIATION_BPS {
@@ -322,7 +388,7 @@ impl PerformanceOracleContract {
                 (symbol_short!("oracle"), symbol_short!("variance")),
                 (campaign_id, quality_deviation_bps),
             );
-            return;
+            return false;
         }
 
         let consensus = OracleConsensus {
@@ -343,6 +409,8 @@ impl PerformanceOracleContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        true
     }
 
     pub fn propose_admin(env: Env, current_admin: Address, new_admin: Address) {

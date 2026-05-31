@@ -85,6 +85,15 @@ impl RewardsDistributorContract {
         if admin != stored_admin {
             panic!("unauthorized");
         }
+        if budget <= 0 {
+            panic!("budget must be positive");
+        }
+        if reward_per_unit <= 0 {
+            panic!("reward_per_unit must be positive");
+        }
+        if duration_ledgers == 0 {
+            panic!("duration_ledgers must be positive");
+        }
 
         let counter: u32 = env
             .storage()
@@ -166,7 +175,7 @@ impl RewardsDistributorContract {
         let key = DataKey::UserRewards(recipient.clone());
         let now = env.ledger().timestamp();
         let ledger_duration = program.end_ledger - program.start_ledger;
-        let vesting_duration = ledger_duration * 5; // ~5 seconds per ledger
+        let vesting_duration = (ledger_duration * 5) as u64; // ~5 seconds per ledger
         let mut rewards: UserRewards =
             env.storage().persistent().get(&key).unwrap_or(UserRewards {
                 user: recipient.clone(),
@@ -217,8 +226,12 @@ impl RewardsDistributorContract {
         let now = env.ledger().timestamp();
         let elapsed = now.saturating_sub(rewards.vesting_start);
         let vesting_fraction = elapsed.min(rewards.vesting_duration);
-        let vested_total = (rewards.total_earned as u128 * vesting_fraction as u128
-            / rewards.vesting_duration as u128) as i128;
+        let vested_total = if rewards.vesting_duration == 0 {
+            rewards.total_earned
+        } else {
+            (rewards.total_earned as u128 * vesting_fraction as u128
+                / rewards.vesting_duration as u128) as i128
+        };
         let claimable = vested_total.saturating_sub(rewards.total_claimed);
 
         if claimable <= 0 {

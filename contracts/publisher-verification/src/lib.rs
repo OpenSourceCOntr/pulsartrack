@@ -347,6 +347,10 @@ impl PublisherVerificationContract {
             _ => panic!("publisher not verified"),
         }
 
+        if earning < 0 {
+            panic!("earning per impression must be non-negative");
+        }
+
         pub_data.total_earnings += earning;
         pub_data.total_impressions += 1;
         pub_data.last_active = env.ledger().timestamp();

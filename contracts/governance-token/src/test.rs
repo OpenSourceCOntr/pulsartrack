@@ -191,3 +191,28 @@ fn test_balance_zero() {
     let (c, _) = setup(&env);
     assert_eq!(c.balance(&Address::generate(&env)), 0);
 }
+
+#[test]
+#[should_panic(expected = "expiry must be a future ledger sequence")]
+fn test_approve_expired_expiry_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin) = setup(&env);
+    let owner = Address::generate(&env);
+    let spender = Address::generate(&env);
+    c.mint(&admin, &owner, &1_000i128);
+    // ledger sequence starts at 0; expiry=0 must be rejected
+    c.approve(&owner, &spender, &500i128, &0u32);
+}
+
+#[test]
+#[should_panic(expected = "supply overflow")]
+fn test_mint_supply_overflow_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin) = setup(&env);
+    let user = Address::generate(&env);
+    // i128::MAX + 1 overflows; checked_add must catch this
+    c.mint(&admin, &user, &i128::MAX);
+    c.mint(&admin, &user, &1i128);
+}

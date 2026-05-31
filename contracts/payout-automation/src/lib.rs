@@ -205,13 +205,6 @@ impl PayoutAutomationContract {
             panic!("too early to execute");
         }
 
-        let token_client = token::Client::new(&env, &payout.token);
-        token_client.transfer(
-            &env.current_contract_address(),
-            &payout.recipient,
-            &payout.amount,
-        );
-
         payout.status = PayoutStatus::Completed;
         payout.executed_at = Some(env.ledger().timestamp());
         let _ttl_key = DataKey::Payout(payout_id);
@@ -246,6 +239,13 @@ impl PayoutAutomationContract {
             &key,
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
+        );
+
+        let token_client = token::Client::new(&env, &payout.token);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &payout.recipient,
+            &payout.amount,
         );
 
         env.events().publish(
@@ -320,6 +320,9 @@ impl PayoutAutomationContract {
     }
 
     pub fn set_max_pending_amount(env: Env, admin: Address, amount: i128) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         if admin != stored_admin {

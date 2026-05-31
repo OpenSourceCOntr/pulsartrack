@@ -54,6 +54,8 @@ const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;
 const INSTANCE_BUMP_AMOUNT: u32 = 86_400;
 const PERSISTENT_LIFETIME_THRESHOLD: u32 = 120_960;
 const PERSISTENT_BUMP_AMOUNT: u32 = 1_051_200;
+// Maximum fraction of total_liquidity a single borrow transaction may draw (25%).
+const MAX_BORROW_FRACTION_BPS: u32 = 2_500;
 
 #[contract]
 pub struct LiquidityPoolContract;
@@ -101,8 +103,8 @@ impl LiquidityPoolContract {
             .get(&DataKey::TokenAddress)
             .unwrap();
         let token_client = token::Client::new(&env, &token_addr);
-        token_client.transfer(&provider, &env.current_contract_address(), &amount);
 
+        // --- Effects: compute shares and commit all state before the external call ---
         let mut pool: PoolState = env.storage().instance().get(&DataKey::PoolState).unwrap();
         let total_shares: i128 = env
             .storage()
@@ -124,10 +126,11 @@ impl LiquidityPoolContract {
             .instance()
             .set(&DataKey::TotalShares, &(total_shares + shares));
 
+        let provider_key = DataKey::Provider(provider.clone());
         let mut position: ProviderPosition = env
             .storage()
             .persistent()
-            .get(&DataKey::Provider(provider.clone()))
+            .get(&provider_key)
             .unwrap_or(ProviderPosition {
                 provider: provider.clone(),
                 deposited: 0,
@@ -138,13 +141,15 @@ impl LiquidityPoolContract {
 
         position.deposited += amount;
         position.shares += shares;
-        let _ttl_key = DataKey::Provider(provider.clone());
-        env.storage().persistent().set(&_ttl_key, &position);
+        env.storage().persistent().set(&provider_key, &position);
         env.storage().persistent().extend_ttl(
-            &_ttl_key,
+            &provider_key,
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        // --- Interaction: pull tokens from provider after all state is committed ---
+        token_client.transfer(&provider, &env.current_contract_address(), &amount);
 
         env.events().publish(
             (symbol_short!("pool"), symbol_short!("deposit")),
@@ -159,6 +164,10 @@ impl LiquidityPoolContract {
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         provider.require_auth();
+
+        if shares <= 0 {
+            panic!("shares must be positive");
+        }
 
         let mut position: ProviderPosition = env
             .storage()
@@ -221,11 +230,9 @@ impl LiquidityPoolContract {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         borrower.require_auth();
 
-        let mut pool: PoolState = env.storage().instance().get(&DataKey::PoolState).unwrap();
-        let available = pool.total_liquidity - pool.total_borrowed;
-
-        if amount > available {
-            panic!("insufficient liquidity");
+        // --- Checks: input validation before any storage read (fail-fast) ---
+        if amount <= 0 {
+            panic!("borrow amount must be positive");
         }
 
         if duration_secs == 0 {
@@ -240,6 +247,20 @@ impl LiquidityPoolContract {
             panic!("already has borrow");
         }
 
+        // --- Pool state checks (single storage read shared by both guards) ---
+        let mut pool: PoolState = env.storage().instance().get(&DataKey::PoolState).unwrap();
+        let available = pool.total_liquidity - pool.total_borrowed;
+
+        if amount > available {
+            panic!("insufficient liquidity");
+        }
+
+        let max_borrow = (pool.total_liquidity * MAX_BORROW_FRACTION_BPS as i128) / 10_000;
+        if amount > max_borrow {
+            panic!("borrow exceeds per-transaction limit");
+        }
+
+        // --- Effects ---
         pool.total_borrowed += amount;
         if pool.total_liquidity > 0 {
             pool.utilization_rate = ((pool.total_borrowed * 100) / pool.total_liquidity) as u32;
@@ -254,17 +275,20 @@ impl LiquidityPoolContract {
             borrowed: amount,
             interest_accrued: 0,
             borrowed_at: now,
-            due_at: now + duration_secs,
+            due_at: now
+                .checked_add(duration_secs)
+                .expect("due_at timestamp overflow"),
         };
 
-        let _ttl_key = DataKey::Borrow(campaign_id);
-        env.storage().persistent().set(&_ttl_key, &borrow);
+        let borrow_key = DataKey::Borrow(campaign_id);
+        env.storage().persistent().set(&borrow_key, &borrow);
         env.storage().persistent().extend_ttl(
-            &_ttl_key,
+            &borrow_key,
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
 
+        // --- Interaction ---
         let token_addr: Address = env
             .storage()
             .instance()
@@ -295,16 +319,22 @@ impl LiquidityPoolContract {
     }
 
     /// Accrue interest on a borrow position
-    pub fn accrue_interest(env: Env, campaign_id: u64) -> i128 {
+    pub fn accrue_interest(env: Env, caller: Address, campaign_id: u64) -> i128 {
         env.storage()
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        caller.require_auth();
 
         let mut borrow: BorrowPosition = env
             .storage()
             .persistent()
             .get(&DataKey::Borrow(campaign_id))
             .expect("borrow not found");
+
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if caller != admin && caller != borrow.borrower {
+            panic!("unauthorized");
+        }
 
         let pool: PoolState = env.storage().instance().get(&DataKey::PoolState).unwrap();
 

@@ -113,6 +113,13 @@ impl AnomalyDetectorContract {
             panic!("unauthorized");
         }
 
+        if avg_impressions == 0 || avg_clicks == 0 {
+            panic!("baseline averages must be positive");
+        }
+        if spike_threshold < 100 {
+            panic!("spike_threshold must be at least 100");
+        }
+
         let baseline = TrafficBaseline {
             campaign_id,
             avg_impressions_per_hour: avg_impressions,
@@ -130,7 +137,13 @@ impl AnomalyDetectorContract {
         );
     }
 
-    pub fn update_baseline(env: Env, admin: Address, campaign_id: u64, new_impressions: u64, new_clicks: u64) {
+    pub fn update_baseline(
+        env: Env,
+        admin: Address,
+        campaign_id: u64,
+        new_impressions: u64,
+        new_clicks: u64,
+    ) {
         env.storage()
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
@@ -147,7 +160,9 @@ impl AnomalyDetectorContract {
             let max_impressions = baseline
                 .avg_impressions_per_hour
                 .saturating_mul(MAX_BASELINE_MULTIPLIER);
-            let max_clicks = baseline.avg_clicks_per_hour.saturating_mul(MAX_BASELINE_MULTIPLIER);
+            let max_clicks = baseline
+                .avg_clicks_per_hour
+                .saturating_mul(MAX_BASELINE_MULTIPLIER);
 
             if new_impressions > max_impressions {
                 panic!("baseline change too large");
@@ -158,7 +173,11 @@ impl AnomalyDetectorContract {
 
             env.events().publish(
                 (symbol_short!("baseline"), symbol_short!("updated")),
-                (campaign_id, baseline.avg_impressions_per_hour, new_impressions),
+                (
+                    campaign_id,
+                    baseline.avg_impressions_per_hour,
+                    new_impressions,
+                ),
             );
         }
 

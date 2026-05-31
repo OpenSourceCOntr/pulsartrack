@@ -206,6 +206,10 @@ impl AnalyticsAggregatorContract {
             .get(&DataKey::CampaignAnalytics(campaign_id))
             .expect("analytics not found");
 
+        if analytics.total_clicks >= analytics.total_impressions {
+            panic!("clicks cannot exceed impressions");
+        }
+
         analytics.total_clicks += 1;
         if analytics.total_impressions > 0 {
             analytics.ctr = ((analytics.total_clicks as u128 * 10_000
@@ -238,6 +242,10 @@ impl AnalyticsAggregatorContract {
             .persistent()
             .get(&DataKey::CampaignAnalytics(campaign_id))
             .expect("analytics not found");
+
+        if analytics.total_conversions >= analytics.total_clicks {
+            panic!("conversions cannot exceed clicks");
+        }
 
         analytics.total_conversions += 1;
         if analytics.total_clicks > 0 {

@@ -137,11 +137,11 @@ impl CampaignLifecycleContract {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         advertiser.require_auth();
 
-        if end_ledger <= env.ledger().sequence() {
-            panic!("end_ledger must be in the future");
-        }
-
-        if env.storage().persistent().has(&DataKey::Lifecycle(campaign_id)) {
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::Lifecycle(campaign_id))
+        {
             panic!("campaign already registered");
         }
 
@@ -321,7 +321,8 @@ impl CampaignLifecycleContract {
         // Enforce maximum total duration (original_end_ledger * MAX_DURATION_MULTIPLIER)
         let max_end = lifecycle
             .original_end_ledger
-            .saturating_mul(MAX_DURATION_MULTIPLIER);
+            .checked_mul(MAX_DURATION_MULTIPLIER)
+            .expect("max duration calculation overflows u32");
         let new_end = lifecycle.current_end_ledger.saturating_add(extra_ledgers);
         if new_end > max_end {
             panic!("extension exceeds max campaign duration");
