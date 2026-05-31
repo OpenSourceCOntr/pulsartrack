@@ -242,6 +242,10 @@ impl GovernanceTokenContract {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         spender.require_auth();
 
+        if from == to {
+            panic!("from and to cannot be the same address");
+        }
+
         let allowance: Allowance = env
             .storage()
             .persistent()
