@@ -201,6 +201,9 @@ impl EscrowVaultContract {
         if performance_threshold > 100 {
             panic!("invalid performance threshold");
         }
+        if time_lock_duration == 0 {
+            panic!("time_lock_duration must be at least 1 second");
+        }
         if expires_in <= time_lock_duration {
             panic!("expires_in must be greater than time_lock_duration");
         }
