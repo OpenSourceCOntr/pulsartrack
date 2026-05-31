@@ -155,6 +155,26 @@ fn test_file_dispute() {
 }
 
 #[test]
+#[should_panic(expected = "claimant and respondent cannot be the same address")]
+fn test_file_dispute_self_dispute_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, token_addr) = setup(&env);
+
+    let claimant = Address::generate(&env);
+    mint(&env, &token_addr, &claimant, 1_000_000);
+
+    client.file_dispute(
+        &claimant,
+        &claimant,
+        &1u64,
+        &50_000i128,
+        &make_desc(&env),
+        &make_evidence(&env),
+    );
+}
+
+#[test]
 fn test_file_multiple_disputes() {
     let env = Env::default();
     env.mock_all_auths();
