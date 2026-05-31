@@ -126,7 +126,6 @@ impl DisputeResolutionContract {
             panic!("invalid claim amount");
         }
 
-        // Collect filing fee
         let fee: i128 = env
             .storage()
             .instance()
@@ -137,13 +136,6 @@ impl DisputeResolutionContract {
             .instance()
             .get(&DataKey::TokenAddress)
             .unwrap();
-        let token_client = token::Client::new(&env, &token_addr);
-        if fee > 0 {
-            token_client.transfer(&claimant, &env.current_contract_address(), &fee);
-        }
-
-        // Lock claim funds in this contract until dispute settlement.
-        token_client.transfer(&claimant, &env.current_contract_address(), &claim_amount);
 
         let counter: u64 = env
             .storage()
@@ -158,7 +150,7 @@ impl DisputeResolutionContract {
             respondent,
             campaign_id,
             claim_amount,
-            token: token_addr,
+            token: token_addr.clone(),
             description,
             evidence_hash,
             status: DisputeStatus::Filed,
@@ -179,6 +171,13 @@ impl DisputeResolutionContract {
         env.storage()
             .instance()
             .set(&DataKey::DisputeCounter, &dispute_id);
+
+        let token_client = token::Client::new(&env, &token_addr);
+        if fee > 0 {
+            token_client.transfer(&claimant, &env.current_contract_address(), &fee);
+        }
+        // Lock claim funds in this contract until dispute settlement.
+        token_client.transfer(&claimant, &env.current_contract_address(), &claim_amount);
 
         env.events().publish(
             (symbol_short!("dispute"), symbol_short!("filed")),
