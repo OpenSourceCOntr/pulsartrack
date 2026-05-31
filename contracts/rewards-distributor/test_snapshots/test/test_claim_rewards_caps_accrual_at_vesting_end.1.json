@@ -573,7 +573,7 @@
                         "symbol": "vesting_duration"
                       },
                       "val": {
-                        "u64": 31536000
+                        "u64": 50000
                       }
                     },
                     {
