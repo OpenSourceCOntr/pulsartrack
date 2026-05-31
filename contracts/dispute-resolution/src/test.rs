@@ -120,6 +120,57 @@ fn test_authorize_arbitrator_by_stranger() {
     client.authorize_arbitrator(&stranger, &arbitrator);
 }
 
+// ─── revoke_arbitrator ───────────────────────────────────────────────────────
+
+#[test]
+fn test_revoke_arbitrator() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _, _) = setup(&env);
+    let arbitrator = Address::generate(&env);
+
+    client.authorize_arbitrator(&admin, &arbitrator);
+    client.revoke_arbitrator(&admin, &arbitrator);
+}
+
+#[test]
+#[should_panic(expected = "arbitrator not authorized")]
+fn test_revoke_arbitrator_blocks_assignment() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _, token_addr) = setup(&env);
+
+    let claimant = Address::generate(&env);
+    let respondent = Address::generate(&env);
+    let arbitrator = Address::generate(&env);
+    mint(&env, &token_addr, &claimant, 1_000_000);
+
+    let dispute_id = client.file_dispute(
+        &claimant,
+        &respondent,
+        &1u64,
+        &50_000i128,
+        &make_desc(&env),
+        &make_evidence(&env),
+    );
+
+    client.authorize_arbitrator(&admin, &arbitrator);
+    client.revoke_arbitrator(&admin, &arbitrator);
+    client.assign_arbitrator(&admin, &dispute_id, &arbitrator);
+}
+
+#[test]
+#[should_panic(expected = "unauthorized")]
+fn test_revoke_arbitrator_by_stranger() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, _) = setup(&env);
+    let stranger = Address::generate(&env);
+    let arbitrator = Address::generate(&env);
+
+    client.revoke_arbitrator(&stranger, &arbitrator);
+}
+
 // ─── file_dispute ────────────────────────────────────────────────────────────
 
 #[test]

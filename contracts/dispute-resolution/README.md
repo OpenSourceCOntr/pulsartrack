@@ -44,6 +44,11 @@ Sets the contract configuration. Can only be called once.
 Adds an address to the approved arbitrator pool.
 - **Restrictions**: Admin only (`require_auth()`).
 
+#### `revoke_arbitrator(admin: Address, arbitrator: Address)`
+Removes an address from the approved arbitrator pool by deleting its persistent authorization key.
+- **Restrictions**: Admin only (`require_auth()`).
+- **Effect**: Revoked arbitrators cannot be assigned to new disputes; already-assigned disputes are unchanged.
+
 #### `assign_arbitrator(admin: Address, dispute_id: u64, arbitrator: Address)`
 Assigns an approved arbitrator to an active dispute.
 - **Restrictions**: Admin only. The arbitrator must be previously authorized.

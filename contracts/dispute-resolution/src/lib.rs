@@ -109,6 +109,20 @@ impl DisputeResolutionContract {
         );
     }
 
+    pub fn revoke_arbitrator(env: Env, admin: Address, arbitrator: Address) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        admin.require_auth();
+        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if admin != stored_admin {
+            panic!("unauthorized");
+        }
+        env.storage()
+            .persistent()
+            .remove(&DataKey::ArbitratorApproved(arbitrator));
+    }
+
     pub fn file_dispute(
         env: Env,
         claimant: Address,
