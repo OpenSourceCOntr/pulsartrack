@@ -378,12 +378,15 @@ fn test_resolve_dispute_respondent_does_not_receive_filing_fee() {
         &String::from_str(&env, "respondent wins"),
     );
 
-    assert_eq!(token_client.balance(&claimant), initial_claimant_balance - 50_000);
+    assert_eq!(
+        token_client.balance(&claimant),
+        initial_claimant_balance - 50_000 - 1_000
+    );
     assert_eq!(
         token_client.balance(&respondent),
         initial_respondent_balance + 50_000
     );
-    assert_eq!(token_client.balance(&client.address), 0);
+    assert_eq!(token_client.balance(&client.address), 1_000);
 }
 
 #[test]

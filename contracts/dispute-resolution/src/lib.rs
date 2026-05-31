@@ -309,7 +309,11 @@ impl DisputeResolutionContract {
             .instance()
             .get(&DataKey::FilingFee)
             .unwrap_or(0);
-        if fee > 0 {
+        let fee_to_claimant = matches!(
+            outcome,
+            DisputeOutcome::Claimant | DisputeOutcome::Split | DisputeOutcome::NoAction
+        );
+        if fee > 0 && fee_to_claimant {
             let token_client = token::Client::new(&env, &dispute.token);
             token_client.transfer(&env.current_contract_address(), &dispute.claimant, &fee);
         }
