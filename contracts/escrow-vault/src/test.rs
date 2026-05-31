@@ -31,6 +31,15 @@ fn mint(env: &Env, _token_admin: &Address, token_addr: &Address, to: &Address, a
     sac.mint(to, &amount);
 }
 
+/// Minimum valid `time_lock_duration` (contract rejects 0).
+const MIN_TIME_LOCK_SECS: u64 = 1;
+
+fn advance_ledger(env: &Env, seconds: u64) {
+    env.ledger().with_mut(|li| {
+        li.timestamp += seconds;
+    });
+}
+
 // ─── initialize ──────────────────────────────────────────────────────────────
 
 #[test]
@@ -101,7 +110,7 @@ fn test_create_escrow() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64, // no time lock
+        &MIN_TIME_LOCK_SECS,
         &0u32, // 0% performance threshold
         &86_400u64,
         &vec![&env, approver.clone()],
@@ -166,8 +175,37 @@ fn test_create_escrow_invalid_performance_threshold() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &101u32, // > 100 → invalid
+        &86_400u64,
+        &vec![&env],
+    );
+}
+
+#[test]
+#[should_panic(expected = "time_lock_duration must be at least 1 second")]
+fn test_create_escrow_zero_time_lock_duration() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let token_admin = Address::generate(&env);
+    let token_addr = deploy_token(&env, &token_admin);
+    let admin = Address::generate(&env);
+    let oracle = Address::generate(&env);
+    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let client = EscrowVaultContractClient::new(&env, &contract_id);
+    client.initialize(&admin, &token_addr, &oracle);
+
+    let depositor = Address::generate(&env);
+    let beneficiary = Address::generate(&env);
+    mint(&env, &token_admin, &token_addr, &depositor, 1_000_000);
+
+    client.create_escrow(
+        &depositor,
+        &1u64,
+        &beneficiary,
+        &100_000i128,
+        &0u64,
+        &0u32,
         &86_400u64,
         &vec![&env],
     );
@@ -197,7 +235,7 @@ fn test_approve_release() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &86_400u64,
         &vec![&env, approver.clone()],
@@ -229,7 +267,7 @@ fn test_approve_release_duplicate_fails() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &86_400u64,
         &vec![&env, approver.clone()],
@@ -257,6 +295,7 @@ fn test_approve_release_unauthorized() {
 
     let depositor = Address::generate(&env);
     let beneficiary = Address::generate(&env);
+    let approver = Address::generate(&env);
     let stranger = Address::generate(&env);
     mint(&env, &token_admin, &token_addr, &depositor, 1_000_000);
 
@@ -265,10 +304,10 @@ fn test_approve_release_unauthorized() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &86_400u64,
-        &vec![&env], // no required approvers
+        &vec![&env, approver],
     );
 
     client.approve_release(&stranger, &escrow_id); // should panic
@@ -298,13 +337,14 @@ fn test_release_escrow() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64, // far-future expiry
         &vec![&env, approver.clone()],
     );
 
     client.approve_release(&approver, &escrow_id);
+    advance_ledger(&env, MIN_TIME_LOCK_SECS);
     client.release_escrow(&depositor, &escrow_id);
 
     let escrow = client.get_escrow(&escrow_id).unwrap();
@@ -364,6 +404,7 @@ fn test_release_escrow_no_approval() {
 
     let depositor = Address::generate(&env);
     let beneficiary = Address::generate(&env);
+    let approver = Address::generate(&env);
     mint(&env, &token_admin, &token_addr, &depositor, 1_000_000);
 
     let escrow_id = client.create_escrow(
@@ -371,13 +412,14 @@ fn test_release_escrow_no_approval() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64,
-        &vec![&env], // no approvers registered → count stays 0
+        &vec![&env, approver], // required approver listed but not yet approved
     );
 
     // min_threshold = 1, approvals = 0 → panic
+    advance_ledger(&env, MIN_TIME_LOCK_SECS);
     client.release_escrow(&depositor, &escrow_id);
 }
 
@@ -405,7 +447,7 @@ fn test_release_escrow_unauthorized_caller() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64,
         &vec![&env, approver.clone()],
@@ -439,13 +481,14 @@ fn test_release_partial() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64,
         &vec![&env, approver.clone()],
     );
 
     client.approve_release(&approver, &escrow_id);
+    advance_ledger(&env, MIN_TIME_LOCK_SECS);
     client.release_partial(&depositor, &escrow_id, &40_000i128);
 
     let escrow = client.get_escrow(&escrow_id).unwrap();
@@ -479,13 +522,14 @@ fn test_release_partial_exceeds_locked() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64,
         &vec![&env, approver.clone()],
     );
 
     client.approve_release(&approver, &escrow_id);
+    advance_ledger(&env, MIN_TIME_LOCK_SECS);
     client.release_partial(&depositor, &escrow_id, &200_000i128); // more than locked
 }
 
@@ -511,13 +555,14 @@ fn test_release_after_partial_released_amount_correct() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64,
         &vec![&env, approver.clone()],
     );
 
     client.approve_release(&approver, &escrow_id);
+    advance_ledger(&env, MIN_TIME_LOCK_SECS);
     client.release_partial(&depositor, &escrow_id, &40_000i128);
     client.release_escrow(&depositor, &escrow_id);
 
@@ -545,6 +590,7 @@ fn test_refund_escrow() {
 
     let depositor = Address::generate(&env);
     let beneficiary = Address::generate(&env);
+    let approver = Address::generate(&env);
     mint(&env, &token_admin, &token_addr, &depositor, 1_000_000);
 
     // expires_in = 100 seconds from now (ledger timestamp = 0 by default)
@@ -553,10 +599,10 @@ fn test_refund_escrow() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &100u64,
-        &vec![&env],
+        &vec![&env, approver],
     );
 
     // advance ledger past expiry
@@ -589,6 +635,7 @@ fn test_refund_escrow_not_expired() {
 
     let depositor = Address::generate(&env);
     let beneficiary = Address::generate(&env);
+    let approver = Address::generate(&env);
     mint(&env, &token_admin, &token_addr, &depositor, 1_000_000);
 
     let escrow_id = client.create_escrow(
@@ -596,10 +643,10 @@ fn test_refund_escrow_not_expired() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64, // far future expiry
-        &vec![&env],
+        &vec![&env, approver],
     );
 
     client.refund_escrow(&depositor, &escrow_id); // too early
@@ -629,7 +676,7 @@ fn test_update_performance() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &80u32,
         &999_999u64,
         &vec![&env, approver.clone()],
@@ -658,6 +705,7 @@ fn test_update_performance_unauthorized() {
 
     let depositor = Address::generate(&env);
     let beneficiary = Address::generate(&env);
+    let approver = Address::generate(&env);
     mint(&env, &token_admin, &token_addr, &depositor, 1_000_000);
 
     let escrow_id = client.create_escrow(
@@ -665,10 +713,10 @@ fn test_update_performance_unauthorized() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64,
-        &vec![&env],
+        &vec![&env, approver],
     );
 
     let fake_oracle = Address::generate(&env);
@@ -699,7 +747,7 @@ fn test_release_blocked_by_performance_threshold() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &80u32,
         &999_999u64,
         &vec![&env, approver.clone()],
@@ -707,6 +755,7 @@ fn test_release_blocked_by_performance_threshold() {
 
     client.update_performance(&oracle, &escrow_id, &50u32, &500u64, &10u64); // below threshold
     client.approve_release(&approver, &escrow_id);
+    advance_ledger(&env, MIN_TIME_LOCK_SECS);
     client.release_escrow(&depositor, &escrow_id); // should panic
 }
 
@@ -729,6 +778,7 @@ fn test_hold_for_fraud() {
 
     let depositor = Address::generate(&env);
     let beneficiary = Address::generate(&env);
+    let approver = Address::generate(&env);
     mint(&env, &token_admin, &token_addr, &depositor, 1_000_000);
 
     let escrow_id = client.create_escrow(
@@ -736,10 +786,10 @@ fn test_hold_for_fraud() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64,
-        &vec![&env],
+        &vec![&env, approver],
     );
 
     client.hold_for_fraud(&fraud_contract, &escrow_id);
@@ -774,7 +824,7 @@ fn test_release_disputed_escrow_fails() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64,
         &vec![&env, approver.clone()],
@@ -809,7 +859,7 @@ fn test_can_release_returns_true_when_conditions_met() {
         &1u64,
         &beneficiary,
         &100_000i128,
-        &0u64,
+        &MIN_TIME_LOCK_SECS,
         &0u32,
         &999_999u64,
         &vec![&env, approver.clone()],
@@ -817,6 +867,8 @@ fn test_can_release_returns_true_when_conditions_met() {
 
     assert!(!client.can_release(&escrow_id)); // no approval yet
     client.approve_release(&approver, &escrow_id);
+    assert!(!client.can_release(&escrow_id)); // time lock still active
+    advance_ledger(&env, MIN_TIME_LOCK_SECS);
     assert!(client.can_release(&escrow_id)); // now it can
 }
 #[test]
@@ -827,6 +879,10 @@ fn test_admin_transfer_flow() {
     let new_admin = Address::generate(&env);
 
     c.propose_admin(&admin, &new_admin);
+    // common-admin enforces a minimum delay (17280 ledgers) before accept_admin
+    env.ledger().with_mut(|li| {
+        li.sequence_number += 17_280;
+    });
     c.accept_admin(&new_admin);
 
     // Verify new admin can perform admin actions
