@@ -175,7 +175,9 @@ impl RewardsDistributorContract {
         let key = DataKey::UserRewards(recipient.clone());
         let now = env.ledger().timestamp();
         let ledger_duration = program.end_ledger - program.start_ledger;
-        let vesting_duration = (ledger_duration * 5) as u64; // ~5 seconds per ledger
+        let vesting_duration: u64 = (ledger_duration as u64)
+            .checked_mul(5)
+            .expect("vesting_duration overflow"); // ~5 seconds per ledger
         let mut rewards: UserRewards =
             env.storage().persistent().get(&key).unwrap_or(UserRewards {
                 user: recipient.clone(),
