@@ -214,6 +214,10 @@ impl DisputeResolutionContract {
             .get(&DataKey::Dispute(dispute_id))
             .expect("dispute not found");
 
+        if dispute.status == DisputeStatus::Resolved || dispute.status == DisputeStatus::Closed {
+            panic!("cannot assign arbitrator to a finalized dispute");
+        }
+
         dispute.arbitrator = Some(arbitrator);
         dispute.status = DisputeStatus::UnderReview;
         let _ttl_key = DataKey::Dispute(dispute_id);
