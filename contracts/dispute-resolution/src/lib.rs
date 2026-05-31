@@ -125,6 +125,9 @@ impl DisputeResolutionContract {
         if claim_amount <= 0 {
             panic!("invalid claim amount");
         }
+        if claimant == respondent {
+            panic!("claimant and respondent cannot be the same address");
+        }
 
         // Collect filing fee
         let fee: i128 = env
