@@ -285,6 +285,40 @@ fn test_assign_unauthorized_arbitrator() {
     client.assign_arbitrator(&admin, &dispute_id, &arbitrator);
 }
 
+#[test]
+#[should_panic(expected = "cannot assign arbitrator to a finalized dispute")]
+fn test_assign_arbitrator_on_resolved_dispute() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _, token_addr) = setup(&env);
+
+    let claimant = Address::generate(&env);
+    let respondent = Address::generate(&env);
+    let arbitrator = Address::generate(&env);
+    let new_arbitrator = Address::generate(&env);
+    mint(&env, &token_addr, &claimant, 1_000_000);
+
+    let dispute_id = client.file_dispute(
+        &claimant,
+        &respondent,
+        &1u64,
+        &50_000i128,
+        &make_desc(&env),
+        &make_evidence(&env),
+    );
+    client.authorize_arbitrator(&admin, &arbitrator);
+    client.authorize_arbitrator(&admin, &new_arbitrator);
+    client.assign_arbitrator(&admin, &dispute_id, &arbitrator);
+    client.resolve_dispute(
+        &arbitrator,
+        &dispute_id,
+        &DisputeOutcome::Claimant,
+        &String::from_str(&env, "claimant wins"),
+    );
+
+    client.assign_arbitrator(&admin, &dispute_id, &new_arbitrator);
+}
+
 // ─── resolve_dispute ─────────────────────────────────────────────────────────
 
 #[test]
