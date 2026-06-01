@@ -472,6 +472,11 @@ impl EscrowVaultContract {
             .get(&DataKey::Escrow(escrow_id))
             .expect("escrow not found");
 
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if caller != escrow.depositor && caller != admin {
+            panic!("only the depositor or admin can trigger a refund");
+        }
+
         let now = env.ledger().timestamp();
         if now < escrow.expires_at {
             panic!("escrow not yet expired");
@@ -770,6 +775,10 @@ impl EscrowVaultContract {
 
     pub fn accept_admin(env: Env, new_admin: Address) {
         pulsar_common_admin::accept_admin(&env, &DataKey::Admin, &DataKey::PendingAdmin, new_admin);
+    }
+
+    pub fn cancel_admin_proposal(env: Env, current_admin: Address) {
+        pulsar_common_admin::cancel_admin_proposal(&env, &DataKey::Admin, &DataKey::PendingAdmin, current_admin);
     }
 }
 

@@ -502,7 +502,7 @@ impl GovernanceTokenContract {
             let _ttl_key = DataKey::DelegatedPower(delegation.delegate);
             env.storage()
                 .persistent()
-                .set(&_ttl_key, &(delegate_power - amount));
+                .set(&_ttl_key, &delegate_power.saturating_sub(amount));
             env.storage().persistent().extend_ttl(
                 &_ttl_key,
                 PERSISTENT_LIFETIME_THRESHOLD,
@@ -548,7 +548,7 @@ impl GovernanceTokenContract {
                 .persistent()
                 .get(&DataKey::DelegatedPower(old_delegation.delegate.clone()))
                 .unwrap_or(0);
-            let new_old_power = old_delegate_power - delegator_balance;
+            let new_old_power = old_delegate_power.saturating_sub(delegator_balance);
             let _ttl_key = DataKey::DelegatedPower(old_delegation.delegate);
             env.storage()
                 .persistent()
@@ -616,7 +616,7 @@ impl GovernanceTokenContract {
                 .persistent()
                 .get(&DataKey::DelegatedPower(delegation_info.delegate.clone()))
                 .unwrap_or(0);
-            let new_power = delegate_power - delegator_balance;
+            let new_power = delegate_power.saturating_sub(delegator_balance);
             let _ttl_key = DataKey::DelegatedPower(delegation_info.delegate);
             env.storage()
                 .persistent()
@@ -682,6 +682,10 @@ impl GovernanceTokenContract {
 
     pub fn accept_admin(env: Env, new_admin: Address) {
         pulsar_common_admin::accept_admin(&env, &DataKey::Admin, &DataKey::PendingAdmin, new_admin);
+    }
+
+    pub fn cancel_admin_proposal(env: Env, current_admin: Address) {
+        pulsar_common_admin::cancel_admin_proposal(&env, &DataKey::Admin, &DataKey::PendingAdmin, current_admin);
     }
 }
 
