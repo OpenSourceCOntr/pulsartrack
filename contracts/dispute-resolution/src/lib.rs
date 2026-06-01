@@ -271,8 +271,11 @@ impl DisputeResolutionContract {
             panic!("not assigned arbitrator");
         }
 
-        if dispute.status == DisputeStatus::Resolved {
-            panic!("already resolved");
+        match dispute.status {
+            DisputeStatus::Resolved | DisputeStatus::Closed | DisputeStatus::Appealed => {
+                panic!("dispute cannot be resolved in its current status");
+            }
+            _ => {}
         }
 
         let (claimant_amount, respondent_amount) = match &outcome {
