@@ -217,15 +217,6 @@ impl EscrowVaultContract {
             panic!("not enough approvers for required threshold");
         }
 
-        // Transfer funds to escrow contract
-        let token_addr: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::TokenAddress)
-            .unwrap();
-        let token_client = token::Client::new(&env, &token_addr);
-        token_client.transfer(&depositor, &env.current_contract_address(), &amount);
-
         let nonce: u64 = env
             .storage()
             .instance()
@@ -280,6 +271,15 @@ impl EscrowVaultContract {
         env.storage()
             .instance()
             .set(&DataKey::EscrowNonce, &escrow_id);
+
+        // Transfer funds to escrow contract (after state is persisted)
+        let token_addr: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenAddress)
+            .unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        token_client.transfer(&depositor, &env.current_contract_address(), &amount);
 
         env.events().publish(
             (symbol_short!("escrow"), symbol_short!("created")),
@@ -374,18 +374,6 @@ impl EscrowVaultContract {
             panic!("nothing to release");
         }
 
-        let token_addr: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::TokenAddress)
-            .unwrap();
-        let token_client = token::Client::new(&env, &token_addr);
-        token_client.transfer(
-            &env.current_contract_address(),
-            &escrow.beneficiary,
-            &locked,
-        );
-
         escrow.locked_amount = 0;
         escrow.released_amount += locked;
         escrow.state = EscrowState::Released;
@@ -397,6 +385,18 @@ impl EscrowVaultContract {
             &_ttl_key,
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
+        );
+
+        let token_addr: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenAddress)
+            .unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &escrow.beneficiary,
+            &locked,
         );
 
         env.events().publish(
@@ -429,18 +429,6 @@ impl EscrowVaultContract {
             panic!("invalid amount");
         }
 
-        let token_addr: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::TokenAddress)
-            .unwrap();
-        let token_client = token::Client::new(&env, &token_addr);
-        token_client.transfer(
-            &env.current_contract_address(),
-            &escrow.beneficiary,
-            &amount,
-        );
-
         escrow.locked_amount -= amount;
         escrow.released_amount += amount;
         escrow.state = EscrowState::PartiallyReleased;
@@ -451,6 +439,18 @@ impl EscrowVaultContract {
             &_ttl_key,
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
+        );
+
+        let token_addr: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenAddress)
+            .unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &escrow.beneficiary,
+            &amount,
         );
 
         env.events().publish(
@@ -486,13 +486,6 @@ impl EscrowVaultContract {
         }
 
         let refund = escrow.locked_amount;
-        let token_addr: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::TokenAddress)
-            .unwrap();
-        let token_client = token::Client::new(&env, &token_addr);
-        token_client.transfer(&env.current_contract_address(), &escrow.depositor, &refund);
 
         escrow.locked_amount = 0;
         escrow.refunded_amount = refund;
@@ -505,6 +498,14 @@ impl EscrowVaultContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        let token_addr: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenAddress)
+            .unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        token_client.transfer(&env.current_contract_address(), &escrow.depositor, &refund);
 
         env.events().publish(
             (symbol_short!("escrow"), symbol_short!("refund")),
@@ -557,34 +558,13 @@ impl EscrowVaultContract {
             panic!("insufficient escrow");
         }
 
-        let token_addr: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::TokenAddress)
-            .unwrap();
-        let token_client = token::Client::new(&env, &token_addr);
-
-        if claimant_amount > 0 {
-            token_client.transfer(&env.current_contract_address(), &claimant, &claimant_amount);
-        }
-        if respondent_amount > 0 {
-            token_client.transfer(
-                &env.current_contract_address(),
-                &respondent,
-                &respondent_amount,
-            );
-        }
-
         escrow.locked_amount -= total_settlement;
 
-        // ✅ FIX: track each side's amount in the correct field
-        escrow.released_amount += claimant_amount; // claimant receives a "release"
-        escrow.refunded_amount += respondent_amount; // respondent receives a "refund"
+        escrow.released_amount += claimant_amount;
+        escrow.refunded_amount += respondent_amount;
 
         escrow.released_at = Some(env.ledger().timestamp());
 
-        // The state logic below is unchanged but now correct because the
-        // accounting fields accurately reflect what was actually transferred
         escrow.state = if escrow.locked_amount == 0 {
             if claimant_amount > 0 && respondent_amount > 0 {
                 EscrowState::PartiallyReleased
@@ -604,6 +584,24 @@ impl EscrowVaultContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        let token_addr: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenAddress)
+            .unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+
+        if claimant_amount > 0 {
+            token_client.transfer(&env.current_contract_address(), &claimant, &claimant_amount);
+        }
+        if respondent_amount > 0 {
+            token_client.transfer(
+                &env.current_contract_address(),
+                &respondent,
+                &respondent_amount,
+            );
+        }
 
         env.events().publish(
             (symbol_short!("escrow"), symbol_short!("settled")),

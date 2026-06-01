@@ -285,6 +285,19 @@ impl DisputeResolutionContract {
             DisputeOutcome::NoAction | DisputeOutcome::Pending => (0, 0),
         };
 
+        dispute.outcome = outcome;
+        dispute.resolution_notes = notes;
+        dispute.status = DisputeStatus::Resolved;
+        dispute.resolved_at = Some(env.ledger().timestamp());
+
+        let _ttl_key = DataKey::Dispute(dispute_id);
+        env.storage().persistent().set(&_ttl_key, &dispute);
+        env.storage().persistent().extend_ttl(
+            &_ttl_key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+
         let used_escrow = if claimant_amount > 0 || respondent_amount > 0 {
             Self::try_settle_linked_escrow(
                 &env,
@@ -315,7 +328,7 @@ impl DisputeResolutionContract {
             }
         }
 
-        if outcome == DisputeOutcome::NoAction && dispute.claim_amount > 0 {
+        if dispute.outcome == DisputeOutcome::NoAction && dispute.claim_amount > 0 {
             let token_client = token::Client::new(&env, &dispute.token);
             token_client.transfer(
                 &env.current_contract_address(),
@@ -330,26 +343,13 @@ impl DisputeResolutionContract {
             .get(&DataKey::FilingFee)
             .unwrap_or(0);
         let fee_to_claimant = matches!(
-            outcome,
+            dispute.outcome,
             DisputeOutcome::Claimant | DisputeOutcome::Split | DisputeOutcome::NoAction
         );
         if fee > 0 && fee_to_claimant {
             let token_client = token::Client::new(&env, &dispute.token);
             token_client.transfer(&env.current_contract_address(), &dispute.claimant, &fee);
         }
-
-        dispute.outcome = outcome;
-        dispute.resolution_notes = notes;
-        dispute.status = DisputeStatus::Resolved;
-        dispute.resolved_at = Some(env.ledger().timestamp());
-
-        let _ttl_key = DataKey::Dispute(dispute_id);
-        env.storage().persistent().set(&_ttl_key, &dispute);
-        env.storage().persistent().extend_ttl(
-            &_ttl_key,
-            PERSISTENT_LIFETIME_THRESHOLD,
-            PERSISTENT_BUMP_AMOUNT,
-        );
 
         env.events().publish(
             (symbol_short!("dispute"), symbol_short!("resolved")),
