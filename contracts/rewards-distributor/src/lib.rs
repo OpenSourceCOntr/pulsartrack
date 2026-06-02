@@ -223,8 +223,8 @@ impl RewardsDistributorContract {
         let key = DataKey::UserRewards(user.clone());
         let mut rewards: UserRewards = env.storage().persistent().get(&key).expect("no rewards");
 
-        if rewards.total_earned <= 0 {
-            panic!("no available rewards");
+        if rewards.pending <= 0 {
+            panic!("no pending rewards to claim");
         }
 
         // Calculate vested amount based on linear vesting schedule

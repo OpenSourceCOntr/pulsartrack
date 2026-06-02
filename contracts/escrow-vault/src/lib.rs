@@ -78,6 +78,7 @@ pub enum DataKey {
     Escrow(u64),
     Approval(u64, Address),
     ApprovalCount(u64),
+    RequiredApproverCount(u64),
     RequiredApprover(u64, Address),
     Performance(u64),
 }
@@ -267,6 +268,15 @@ impl EscrowVaultContract {
                 PERSISTENT_BUMP_AMOUNT,
             );
         }
+
+        let required_count = required_approvers.len() as u32;
+        let _ttl_key = DataKey::RequiredApproverCount(escrow_id);
+        env.storage().persistent().set(&_ttl_key, &required_count);
+        env.storage().persistent().extend_ttl(
+            &_ttl_key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
 
         env.storage()
             .instance()
@@ -692,17 +702,17 @@ impl EscrowVaultContract {
         {
             let now = env.ledger().timestamp();
             let time_ok = now >= escrow.time_lock_until;
-            let min_threshold: u32 = env
+            let required_count: u32 = env
                 .storage()
-                .instance()
-                .get(&DataKey::MinApprovalThreshold)
-                .unwrap_or(1);
+                .persistent()
+                .get(&DataKey::RequiredApproverCount(escrow_id))
+                .unwrap_or(0);
             let approvals: u32 = env
                 .storage()
                 .persistent()
                 .get(&DataKey::ApprovalCount(escrow_id))
                 .unwrap_or(0);
-            let approvals_ok = approvals >= min_threshold;
+            let approvals_ok = approvals >= required_count;
 
             let perf_ok = if let Some(perf) = env
                 .storage()
@@ -733,17 +743,17 @@ impl EscrowVaultContract {
             panic!("time lock active");
         }
 
-        let min_threshold: u32 = env
+        let required_count: u32 = env
             .storage()
-            .instance()
-            .get(&DataKey::MinApprovalThreshold)
-            .unwrap_or(1);
+            .persistent()
+            .get(&DataKey::RequiredApproverCount(escrow_id))
+            .unwrap_or(0);
         let approvals: u32 = env
             .storage()
             .persistent()
             .get(&DataKey::ApprovalCount(escrow_id))
             .unwrap_or(0);
-        if approvals < min_threshold {
+        if approvals < required_count {
             panic!("approval required");
         }
 

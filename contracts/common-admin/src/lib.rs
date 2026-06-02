@@ -19,6 +19,9 @@ pub fn propose_admin<K>(
     if current_admin != stored {
         panic!("unauthorized");
     }
+    if env.storage().instance().has(pending_key) {
+        panic!("pending admin proposal already exists");
+    }
     env.storage().instance().set(pending_key, &(new_admin, env.ledger().sequence()));
 }
 
