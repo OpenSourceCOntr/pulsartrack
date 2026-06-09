@@ -49,7 +49,9 @@ pub enum DataKey {
     VotingSnapshot(Address, u32), // Address, ledger_sequence
 }
 
-pub const MAX_SUPPLY: i128 = 1_000_000_000_000; // 1M tokens with 6 decimals
+// 1_000_000_000_000 base units. With the 7-decimal metadata below this is
+// 100,000 PULSAR; adjust `decimals` to 6 if a 1,000,000-token cap is intended.
+pub const MAX_SUPPLY: i128 = 1_000_000_000_000;
 
 // ============================================================
 // Contract

@@ -111,7 +111,7 @@ fn test_submit_kyc_unregistered() {
 fn test_verify_publisher() {
     let env = Env::default();
     env.mock_all_auths();
-    let (c, admin) = setup(&env);
+    let (c, admin, _) = setup(&env);
     let pub1 = Address::generate(&env);
     c.register_publisher(&pub1, &s(&env, "example.com"));
     c.submit_kyc(&pub1, &s(&env, "KycHash"), &s(&env, "KycProvider"));
@@ -142,7 +142,7 @@ fn test_verify_publisher_unauthorized() {
 fn test_suspend_publisher() {
     let env = Env::default();
     env.mock_all_auths();
-    let (c, admin) = setup(&env);
+    let (c, admin, _) = setup(&env);
     let pub1 = Address::generate(&env);
     c.register_publisher(&pub1, &s(&env, "example.com"));
     c.submit_kyc(&pub1, &s(&env, "KycHash"), &s(&env, "KycProvider"));
@@ -155,7 +155,7 @@ fn test_suspend_publisher() {
 fn test_update_reputation() {
     let env = Env::default();
     env.mock_all_auths();
-    let (c, admin) = setup(&env);
+    let (c, admin, _) = setup(&env);
     let pub1 = Address::generate(&env);
     c.register_publisher(&pub1, &s(&env, "example.com"));
     c.update_reputation(&admin, &pub1, &850u32);
@@ -168,7 +168,7 @@ fn test_update_reputation() {
 fn test_update_reputation_too_high() {
     let env = Env::default();
     env.mock_all_auths();
-    let (c, admin) = setup(&env);
+    let (c, admin, _) = setup(&env);
     let pub1 = Address::generate(&env);
     c.register_publisher(&pub1, &s(&env, "example.com"));
     c.update_reputation(&admin, &pub1, &1001u32);
@@ -183,7 +183,7 @@ fn test_record_impression() {
     c.register_publisher(&pub1, &s(&env, "example.com"));
     c.submit_kyc(&pub1, &s(&env, "KycHash"), &s(&env, "KycProvider"));
     c.verify_publisher(&admin, &pub1);
-    c.record_impression(&caller, &pub1, &1000i128);
+    c.record_impression(&orchestrator, &pub1, &1000i128);
     let p = c.get_publisher(&pub1).unwrap();
     assert_eq!(p.total_impressions, 1);
     assert_eq!(p.total_earnings, 1000);
@@ -199,7 +199,7 @@ fn test_record_impression_unauthorized() {
     let attacker = Address::generate(&env);
     c.register_publisher(&pub1, &s(&env, "example.com"));
     c.submit_kyc(&pub1, &s(&env, "KycHash"), &s(&env, "KycProvider"));
-    c.verify_publisher(&admin, &pub1, &PublisherTier::Gold);
+    c.verify_publisher(&admin, &pub1);
     c.record_impression(&attacker, &pub1, &1000i128);
 }
 
@@ -208,11 +208,11 @@ fn test_record_impression_unauthorized() {
 fn test_record_impression_unverified() {
     let env = Env::default();
     env.mock_all_auths();
-    let (c, _, _) = setup(&env);
+    let (c, _, orchestrator) = setup(&env);
     let pub1 = Address::generate(&env);
-    let caller = Address::generate(&env);
     c.register_publisher(&pub1, &s(&env, "example.com"));
-    c.record_impression(&caller, &pub1, &1000i128);
+    // Called by the authorized orchestrator, but the publisher is not verified.
+    c.record_impression(&orchestrator, &pub1, &1000i128);
 }
 
 #[test]

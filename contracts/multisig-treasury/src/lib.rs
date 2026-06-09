@@ -408,7 +408,7 @@ impl MultisigTreasuryContract {
             panic!("unauthorized");
         }
 
-        let mut signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
+        let signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
         let required: u32 = env
             .storage()
             .instance()

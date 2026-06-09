@@ -206,13 +206,26 @@ fn test_approve_expired_expiry_rejected() {
 }
 
 #[test]
+#[should_panic(expected = "exceeds max supply")]
+fn test_mint_exceeds_max_supply_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin) = setup(&env);
+    let user = Address::generate(&env);
+    // Any single mint above MAX_SUPPLY is rejected by the cap check.
+    c.mint(&admin, &user, &(MAX_SUPPLY + 1));
+}
+
+#[test]
 #[should_panic(expected = "supply overflow")]
 fn test_mint_supply_overflow_panics() {
     let env = Env::default();
     env.mock_all_auths();
     let (c, admin) = setup(&env);
     let user = Address::generate(&env);
-    // i128::MAX + 1 overflows; checked_add must catch this
+    // Reach the cap, then mint a value large enough that
+    // current_supply + amount overflows i128 — checked_add must catch this
+    // before the cap comparison.
+    c.mint(&admin, &user, &MAX_SUPPLY);
     c.mint(&admin, &user, &i128::MAX);
-    c.mint(&admin, &user, &1i128);
 }

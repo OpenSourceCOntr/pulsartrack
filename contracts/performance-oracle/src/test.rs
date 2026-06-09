@@ -113,18 +113,22 @@ fn test_consensus_with_actual_averaging() {
 
     let data_hash = BytesN::from_array(&env, &[1u8; 32]);
 
-    // Attester 1: 1000 impressions, 100 clicks, 10% fraud, 80 quality
+    // Attester 1: 1000 impressions, 100 clicks, 12% fraud, 80 quality
     c.submit_attestation(
-        &att1, &1u64, &1000u64, &100u64, &1000u32, &80u32, &data_hash,
+        &att1, &1u64, &1000u64, &100u64, &1200u32, &80u32, &data_hash,
     );
 
     // Should not have consensus yet (need min 2 attesters)
     assert!(c.get_consensus(&1u64).is_none());
 
-    // Attester 2: 2000 impressions, 200 clicks, 20% fraud, 90 quality
+    // Attester 2: 2000 impressions, 200 clicks, 18% fraud, 90 quality
+    // (fraud rates kept within the consensus variance tolerance)
     c.submit_attestation(
-        &att2, &1u64, &2000u64, &200u64, &2000u32, &90u32, &data_hash,
+        &att2, &1u64, &2000u64, &200u64, &1800u32, &90u32, &data_hash,
     );
+
+    // Admin finalizes consensus once the minimum number of attesters is met.
+    c.finalize_consensus(&admin, &1u64);
 
     // Now we have consensus with 2 attesters
     let consensus_opt = c.get_consensus(&1u64);
@@ -164,18 +168,22 @@ fn test_consensus_with_three_attesters() {
 
     let data_hash = BytesN::from_array(&env, &[1u8; 32]);
 
-    // Attester 1: 900 impressions, 90 clicks, 5% fraud, 70 quality
-    c.submit_attestation(&att1, &1u64, &900u64, &90u64, &500u32, &70u32, &data_hash);
+    // Attester 1: 900 impressions, 90 clicks, 8% fraud, 70 quality
+    c.submit_attestation(&att1, &1u64, &900u64, &90u64, &800u32, &70u32, &data_hash);
 
     // Attester 2: 1200 impressions, 120 clicks, 10% fraud, 80 quality
     c.submit_attestation(
         &att2, &1u64, &1200u64, &120u64, &1000u32, &80u32, &data_hash,
     );
 
-    // Attester 3: 1500 impressions, 150 clicks, 15% fraud, 90 quality
+    // Attester 3: 1500 impressions, 150 clicks, 12% fraud, 90 quality
+    // (fraud rates kept within the consensus variance tolerance)
     c.submit_attestation(
-        &att3, &1u64, &1500u64, &150u64, &1500u32, &90u32, &data_hash,
+        &att3, &1u64, &1500u64, &150u64, &1200u32, &90u32, &data_hash,
     );
+
+    // Admin finalizes consensus across all three attesters.
+    c.finalize_consensus(&admin, &1u64);
 
     let consensus = c.get_consensus(&1u64).unwrap();
 
@@ -232,20 +240,27 @@ fn test_last_attester_does_not_override_consensus() {
     c.submit_attestation(&att1, &1u64, &1000u64, &100u64, &500u32, &80u32, &data_hash);
     c.submit_attestation(&att2, &1u64, &1100u64, &110u64, &600u32, &85u32, &data_hash);
 
-    // Third attester reports wildly different values
-    c.submit_attestation(
-        &att3, &1u64, &9000u64, &900u64, &5000u32, &50u32, &data_hash,
-    );
+    // Admin finalizes consensus from the two agreeing attesters.
+    c.finalize_consensus(&admin, &1u64);
 
     let consensus = c.get_consensus(&1u64).unwrap();
 
-    // Average should include all three, not just the last one
-    // (1000 + 1100 + 9000) / 3 = 3700
-    assert_eq!(consensus.avg_impressions, 3700);
+    // Consensus reflects the two agreeing attesters.
+    // (1000 + 1100) / 2 = 1050
+    assert_eq!(consensus.avg_impressions, 1050);
+    // (100 + 110) / 2 = 105
+    assert_eq!(consensus.avg_clicks, 105);
+    assert_eq!(consensus.total_attesters, 2);
 
-    // (100 + 110 + 900) / 3 = 370
-    assert_eq!(consensus.avg_clicks, 370);
+    // A later, wildly-divergent attestation cannot override the finalized
+    // consensus — the contract rejects further attestations once finalized.
+    let result = c.try_submit_attestation(
+        &att3, &1u64, &9000u64, &900u64, &5000u32, &50u32, &data_hash,
+    );
+    assert!(result.is_err());
 
-    // The consensus is influenced by all attesters, not just the last one
-    assert_eq!(consensus.total_attesters, 3);
+    // Consensus remains the two-attester result.
+    let consensus_after = c.get_consensus(&1u64).unwrap();
+    assert_eq!(consensus_after.total_attesters, 2);
+    assert_eq!(consensus_after.avg_impressions, 1050);
 }

@@ -730,7 +730,7 @@ fn test_cancel_proposal_by_stranger_fails() {
 }
 
 #[test]
-#[should_panic(expected = "can only cancel active proposals")]
+#[should_panic(expected = "can only cancel an active proposal")]
 fn test_cancel_passed_proposal_fails() {
     let env = Env::default();
     env.mock_all_auths();
@@ -756,7 +756,7 @@ fn test_cancel_passed_proposal_fails() {
 }
 
 #[test]
-#[should_panic(expected = "can only cancel active proposals")]
+#[should_panic(expected = "can only cancel an active proposal")]
 fn test_cancel_executed_proposal_fails() {
     let env = Env::default();
     env.mock_all_auths();
@@ -783,7 +783,7 @@ fn test_cancel_executed_proposal_fails() {
 }
 
 #[test]
-#[should_panic(expected = "can only cancel active proposals")]
+#[should_panic(expected = "can only cancel an active proposal")]
 fn test_cancel_already_cancelled_proposal_fails() {
     let env = Env::default();
     env.mock_all_auths();

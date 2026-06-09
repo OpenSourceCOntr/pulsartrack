@@ -244,5 +244,9 @@ fn test_verify_kyc_expiry_overflow() {
         &s(&env, "DocHash"),
         &s(&env, "US"),
     );
+    // A non-zero ledger timestamp ensures `now + u64::MAX` actually overflows.
+    env.ledger().with_mut(|li| {
+        li.timestamp = 1_000;
+    });
     c.verify_kyc(&provider, &account, &Some(u64::MAX));
 }

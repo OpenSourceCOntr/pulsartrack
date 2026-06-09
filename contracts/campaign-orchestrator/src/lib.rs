@@ -4,7 +4,7 @@
 #![no_std]
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, String,
-    Symbol, TryFromVal, Val, Vec as SdkVec,
+    Symbol, Val, Vec as SdkVec,
 };
 
 #[contracttype]

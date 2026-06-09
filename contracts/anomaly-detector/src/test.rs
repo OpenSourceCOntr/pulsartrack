@@ -48,7 +48,7 @@ fn test_set_baseline() {
     let env = Env::default();
     env.mock_all_auths();
     let (c, _, oracle) = setup(&env);
-    c.set_baseline(&oracle, &1u64, &1000u64, &50u64, &5u32);
+    c.set_baseline(&oracle, &1u64, &1000u64, &50u64, &200u32);
     let bl = c.get_baseline(&1u64).unwrap();
     assert_eq!(bl.avg_impressions_per_hour, 1000);
     assert_eq!(bl.avg_clicks_per_hour, 50);
@@ -60,7 +60,7 @@ fn test_set_baseline_unauthorized() {
     let env = Env::default();
     env.mock_all_auths();
     let (c, _, _) = setup(&env);
-    c.set_baseline(&Address::generate(&env), &1u64, &1000u64, &50u64, &5u32);
+    c.set_baseline(&Address::generate(&env), &1u64, &1000u64, &50u64, &200u32);
 }
 
 #[test]

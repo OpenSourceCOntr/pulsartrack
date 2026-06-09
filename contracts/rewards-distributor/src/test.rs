@@ -171,7 +171,7 @@ fn test_claim_rewards_caps_accrual_at_vesting_end() {
 }
 
 #[test]
-#[should_panic(expected = "no vested rewards available to claim")]
+#[should_panic(expected = "no pending rewards to claim")]
 fn test_claim_rewards_cannot_exceed_total_earned_after_vesting_end() {
     let env = Env::default();
     env.mock_all_auths();

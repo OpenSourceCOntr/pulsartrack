@@ -1,6 +1,9 @@
 #![cfg(test)]
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, Env, String};
+use soroban_sdk::{
+    testutils::{Address as _, Ledger},
+    Address, Env, String,
+};
 
 fn setup(env: &Env) -> (AdRegistryContractClient<'_>, Address) {
     let admin = Address::generate(env);
@@ -178,11 +181,13 @@ fn test_track_view() {
     let env = Env::default();
     env.mock_all_auths();
     let (c, admin) = setup(&env);
+    let viewer = Address::generate(&env);
     let cid = register(&c, &env);
     c.update_status(&admin, &cid, &ContentStatus::Approved);
-    c.track_view(&cid);
+    c.track_view(&cid, &viewer);
     let perf = c.get_performance(&cid).unwrap();
     assert_eq!(perf.total_views, 1);
+    assert_eq!(perf.unique_viewers, 1);
 }
 
 #[test]
@@ -191,8 +196,9 @@ fn test_track_view_unapproved() {
     let env = Env::default();
     env.mock_all_auths();
     let (c, _) = setup(&env);
+    let viewer = Address::generate(&env);
     let cid = register(&c, &env);
-    c.track_view(&cid);
+    c.track_view(&cid, &viewer);
 }
 
 #[test]
@@ -200,10 +206,11 @@ fn test_track_click() {
     let env = Env::default();
     env.mock_all_auths();
     let (c, admin) = setup(&env);
+    let viewer = Address::generate(&env);
     let cid = register(&c, &env);
     c.update_status(&admin, &cid, &ContentStatus::Approved);
-    c.track_view(&cid);
-    c.track_click(&cid);
+    c.track_view(&cid, &viewer);
+    c.track_click(&cid, &viewer);
     let perf = c.get_performance(&cid).unwrap();
     assert_eq!(perf.total_clicks, 1);
     assert_eq!(perf.click_through_rate, 10_000); // 1/1 * 10000
@@ -251,6 +258,11 @@ fn test_admin_transfer_flow() {
     let new_admin = Address::generate(&env);
 
     c.propose_admin(&admin, &new_admin);
+
+    // accept_admin enforces a timelock; advance past it before accepting.
+    env.ledger().with_mut(|li| {
+        li.sequence_number += 17_280;
+    });
     c.accept_admin(&new_admin);
 
     // Verify new admin can perform admin actions
