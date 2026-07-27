@@ -215,6 +215,11 @@ impl MilestoneTrackerContract {
             panic!("unauthorized: only advertiser or admin can dispute");
         }
 
+        match milestone.status {
+            MilestoneStatus::Pending | MilestoneStatus::InProgress => {}
+            _ => panic!("milestone cannot be disputed in its current status"),
+        }
+
         milestone.status = MilestoneStatus::Disputed;
         let _ttl_key = DataKey::Milestone(milestone_id);
         env.storage().persistent().set(&_ttl_key, &milestone);
