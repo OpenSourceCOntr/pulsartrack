@@ -241,6 +241,10 @@ impl MilestoneTrackerContract {
             .get(&DataKey::Milestone(milestone_id))
             .expect("milestone not found");
 
+        if milestone.status != MilestoneStatus::Disputed {
+            panic!("can only resolve a Disputed milestone");
+        }
+
         milestone.status = if achieved {
             MilestoneStatus::Achieved
         } else {
