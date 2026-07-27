@@ -234,8 +234,13 @@ impl RewardsDistributorContract {
         let vested_total = if rewards.vesting_duration == 0 {
             rewards.total_earned
         } else {
-            (rewards.total_earned as u128 * vesting_fraction as u128
-                / rewards.vesting_duration as u128) as i128
+            // Use a 10_000 bps scaling factor to preserve precision for small rewards
+            // with long vesting durations, preventing integer division truncation to 0.
+            let vested_bps = rewards.total_earned as u128
+                * vesting_fraction as u128
+                * 10_000
+                / rewards.vesting_duration as u128;
+            (vested_bps / 10_000) as i128
         };
         let claimable = vested_total.saturating_sub(rewards.total_claimed);
 
