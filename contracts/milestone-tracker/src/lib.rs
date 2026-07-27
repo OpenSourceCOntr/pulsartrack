@@ -98,7 +98,8 @@ impl MilestoneTrackerContract {
         }
 
         let now = env.ledger().timestamp();
-        let deadline = now + duration_secs;
+        let deadline = now.checked_add(duration_secs)
+            .expect("milestone deadline timestamp overflows u64");
 
         let counter: u64 = env
             .storage()
