@@ -331,6 +331,15 @@ impl DisputeResolutionContract {
             }
         }
 
+        if used_escrow && dispute.claim_amount > 0 {
+            let token_client = token::Client::new(&env, &dispute.token);
+            token_client.transfer(
+                &env.current_contract_address(),
+                &dispute.claimant,
+                &dispute.claim_amount,
+            );
+        }
+
         if dispute.outcome == DisputeOutcome::NoAction && dispute.claim_amount > 0 {
             let token_client = token::Client::new(&env, &dispute.token);
             token_client.transfer(
