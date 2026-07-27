@@ -503,7 +503,7 @@ impl EscrowVaultContract {
         let refund = escrow.locked_amount;
 
         escrow.locked_amount = 0;
-        escrow.refunded_amount = refund;
+        escrow.refunded_amount += refund;
         escrow.state = EscrowState::Refunded;
 
         let _ttl_key = DataKey::Escrow(escrow_id);
