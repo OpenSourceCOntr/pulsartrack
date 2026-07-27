@@ -265,6 +265,41 @@ impl MilestoneTrackerContract {
             .get(&DataKey::Milestone(milestone_id))
     }
 
+    /// Permissionless function to mark an expired milestone as Missed.
+    /// Anyone can call this once the deadline has passed and the milestone
+    /// is not already finalized, unblocking downstream logic when the oracle
+    /// is offline or throttled.
+    pub fn mark_missed(env: Env, milestone_id: u64) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+
+        let mut milestone: Milestone = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Milestone(milestone_id))
+            .expect("not found");
+
+        if milestone.status == MilestoneStatus::Achieved
+            || milestone.status == MilestoneStatus::Missed
+        {
+            panic!("already finalized");
+        }
+
+        if env.ledger().timestamp() <= milestone.deadline {
+            panic!("deadline has not passed");
+        }
+
+        milestone.status = MilestoneStatus::Missed;
+        let _ttl_key = DataKey::Milestone(milestone_id);
+        env.storage().persistent().set(&_ttl_key, &milestone);
+        env.storage().persistent().extend_ttl(
+            &_ttl_key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+    }
+
     pub fn get_campaign_milestone_count(env: Env, campaign_id: u64) -> u64 {
         env.storage()
             .instance()

@@ -670,6 +670,72 @@ impl GovernanceTokenContract {
             .get(&DataKey::Delegation(delegator))
     }
 
+    /// Take a voting snapshot for a voter at a given ledger sequence.
+    /// Stores the voter's own balance plus any delegated power they hold
+    /// at that point in time. Governance-dao should use this snapshot
+    /// balance when a proposal is being voted on to prevent flash-loan attacks.
+    pub fn take_snapshot(env: Env, voter: Address, ledger_sequence: u32) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        voter.require_auth();
+
+        // Only allow snapshotting at or before the current ledger
+        if ledger_sequence > env.ledger().sequence() {
+            panic!("cannot snapshot a future ledger");
+        }
+
+        let own_balance: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Balance(voter.clone()))
+            .unwrap_or(0);
+        let delegated_power: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::DelegatedPower(voter.clone()))
+            .unwrap_or(0);
+
+        // If the voter has delegated their power away, snapshot as 0
+        let delegation = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Delegation>(&DataKey::Delegation(voter.clone()));
+        let snapshot_power = if delegation.is_some() {
+            0i128
+        } else {
+            own_balance + delegated_power
+        };
+
+        let key = DataKey::VotingSnapshot(voter.clone(), ledger_sequence);
+        env.storage().persistent().set(&key, &snapshot_power);
+        env.storage().persistent().extend_ttl(
+            &key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+
+        env.events().publish(
+            (symbol_short!("snapshot"),),
+            (voter, ledger_sequence, snapshot_power),
+        );
+    }
+
+    /// Retrieve a previously taken voting snapshot.
+    /// Returns None if no snapshot exists for this voter at the given ledger.
+    pub fn get_voting_snapshot(
+        env: Env,
+        voter: Address,
+        ledger_sequence: u32,
+    ) -> Option<i128> {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        env.storage()
+            .persistent()
+            .get(&DataKey::VotingSnapshot(voter, ledger_sequence))
+    }
+
     pub fn propose_admin(env: Env, current_admin: Address, new_admin: Address) {
         pulsar_common_admin::propose_admin(
             &env,
