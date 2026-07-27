@@ -235,12 +235,14 @@ impl EscrowVaultContract {
             released_amount: 0,
             refunded_amount: 0,
             state: EscrowState::Locked,
-            time_lock_until: now + time_lock_duration,
+            time_lock_until: now
+                .checked_add(time_lock_duration)
+                .expect("time_lock_until overflow"),
             performance_threshold,
             created_at: now,
             locked_at: Some(now),
             released_at: None,
-            expires_at: now + expires_in,
+            expires_at: now.checked_add(expires_in).expect("expires_at overflow"),
         };
 
         let _ttl_key = DataKey::Escrow(escrow_id);
@@ -327,8 +329,11 @@ impl EscrowVaultContract {
             .get(&DataKey::Escrow(escrow_id))
             .expect("escrow not found");
 
-        if escrow.state == EscrowState::Released {
-            panic!("already released");
+        match escrow.state {
+            EscrowState::Released | EscrowState::Refunded | EscrowState::Disputed => {
+                panic!("escrow is not in an approvable state");
+            }
+            _ => {}
         }
 
         let approval = EscrowApproval {
