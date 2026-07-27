@@ -239,6 +239,12 @@ impl LiquidityPoolContract {
             panic!("duration_secs must be greater than zero");
         }
 
+        // Reject unreasonably long loan durations (max 1 year = 31,557,600 seconds)
+        const MAX_DURATION_SECS: u64 = 31_557_600;
+        if duration_secs > MAX_DURATION_SECS {
+            panic!("duration_secs exceeds maximum allowed loan duration");
+        }
+
         if env
             .storage()
             .persistent()
