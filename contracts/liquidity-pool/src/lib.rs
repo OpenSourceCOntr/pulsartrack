@@ -189,7 +189,10 @@ impl LiquidityPoolContract {
         if total_shares == 0 {
             panic!("no shares in pool");
         }
-        let amount = (shares * pool.total_liquidity) / total_shares;
+        let amount = shares
+            .checked_mul(pool.total_liquidity)
+            .expect("share redemption calculation overflows i128")
+            / total_shares;
         let available = pool.total_liquidity - pool.total_borrowed;
 
         if amount > available {
