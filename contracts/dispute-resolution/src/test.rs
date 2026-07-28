@@ -526,6 +526,37 @@ fn test_resolve_by_wrong_arbitrator() {
     );
 }
 
+#[test]
+#[should_panic(expected = "Pending is not a valid resolution outcome")]
+fn test_resolve_dispute_with_pending_outcome_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _, token_addr) = setup(&env);
+
+    let claimant = Address::generate(&env);
+    let respondent = Address::generate(&env);
+    let arbitrator = Address::generate(&env);
+    mint(&env, &token_addr, &claimant, 1_000_000);
+
+    let dispute_id = client.file_dispute(
+        &claimant,
+        &respondent,
+        &1u64,
+        &50_000i128,
+        &make_desc(&env),
+        &make_evidence(&env),
+    );
+    client.authorize_arbitrator(&admin, &arbitrator);
+    client.assign_arbitrator(&admin, &dispute_id, &arbitrator);
+
+    client.resolve_dispute(
+        &arbitrator,
+        &dispute_id,
+        &DisputeOutcome::Pending,
+        &String::from_str(&env, "invalid"),
+    );
+}
+
 // ─── read-only ───────────────────────────────────────────────────────────────
 
 #[test]
