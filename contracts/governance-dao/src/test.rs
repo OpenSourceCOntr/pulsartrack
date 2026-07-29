@@ -42,6 +42,15 @@ impl MockGovToken {
             .unwrap_or(1_000_000)
     }
 
+    pub fn get_voting_snapshot(env: Env, id: Address, _ledger_sequence: u32) -> Option<i128> {
+        let snap = env.storage().persistent().get::<Address, i128>(&id).unwrap_or(1_000_000);
+        if snap == -1 {
+            None
+        } else {
+            Some(snap)
+        }
+    }
+
     /// Token transfer: move `amount` from `from` to `to`.
     pub fn transfer(env: Env, from: Address, to: Address, amount: i128) {
         from.require_auth();
@@ -999,4 +1008,23 @@ fn test_create_proposal_exact_minimum_accepted() {
     let proposal_id = client.create_proposal(&proposer, &make_title(&env), &make_desc(&env), &None);
 
     assert_eq!(proposal_id, 1);
+}
+
+#[test]
+#[should_panic(expected = "no voting snapshot found for proposal start ledger")]
+fn test_flash_loan_vote_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, token_addr) = setup_with_mock_token(&env, 10_000);
+    let proposer = Address::generate(&env);
+    let attacker = Address::generate(&env);
+
+    // Set attacker's balance to -1 so our mock get_voting_snapshot returns None
+    MockGovTokenClient::new(&env, &token_addr).set_balance(&attacker, &-1);
+
+    let proposal_id = client.create_proposal(&proposer, &make_title(&env), &make_desc(&env), &None);
+
+    // Simulating flash loan: attacker gets tokens and tries to vote without a valid snapshot
+    client.cast_vote(&attacker, &proposal_id, &VoteChoice::For, &200i128);
 }

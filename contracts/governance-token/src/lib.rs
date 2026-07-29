@@ -680,9 +680,9 @@ impl GovernanceTokenContract {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         voter.require_auth();
 
-        // Only allow snapshotting at or before the current ledger
-        if ledger_sequence > env.ledger().sequence() {
-            panic!("cannot snapshot a future ledger");
+        // Only allow snapshotting exactly at the current ledger to prevent retroactive flash loans
+        if ledger_sequence != env.ledger().sequence() {
+            panic!("snapshot ledger must match the current ledger");
         }
 
         let own_balance: i128 = env
