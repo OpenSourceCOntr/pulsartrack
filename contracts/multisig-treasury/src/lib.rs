@@ -66,7 +66,7 @@ impl MultisigTreasuryContract {
         }
         admin.require_auth();
 
-        if required == 0 || required > initial_signers.len() as u32 {
+        if required == 0 || required > initial_signers.len() {
             panic!("invalid required signers");
         }
 
@@ -307,7 +307,7 @@ impl MultisigTreasuryContract {
 
         tx.rejections += 1;
 
-        let total_signers = signers.len() as u32;
+        let total_signers = signers.len();
         let required: u32 = env
             .storage()
             .instance()
@@ -420,7 +420,7 @@ impl MultisigTreasuryContract {
         }
 
         // Removing must not drop total signers below required threshold
-        if signers.len() as u32 - 1 < required {
+        if signers.len() - 1 < required {
             panic!("cannot remove: would breach required signers threshold");
         }
 

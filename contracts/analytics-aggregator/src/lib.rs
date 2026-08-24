@@ -151,7 +151,7 @@ impl AnalyticsAggregatorContract {
                 / analytics.total_impressions as u128) as u32)
                 .min(10_000);
             // Use checked/saturating arithmetic for CPM
-            analytics.cpm = (analytics.total_spend as i128)
+            analytics.cpm = analytics.total_spend
                 .saturating_mul(1_000)
                 .checked_div(analytics.total_impressions as i128)
                 .unwrap_or(0);

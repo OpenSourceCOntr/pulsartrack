@@ -81,7 +81,7 @@ impl MockExecutionTarget {
 
 /// Deploy MockGovToken and set its total supply.
 fn deploy_mock_gov_token(env: &Env, total_supply: i128) -> Address {
-    let id = env.register_contract(None, MockGovToken);
+    let id = env.register(MockGovToken, ());
     let client = MockGovTokenClient::new(env, &id);
     client.set_supply(&total_supply);
     id
@@ -94,7 +94,7 @@ fn setup(env: &Env) -> (GovernanceDaoContractClient<'_>, Address, Address, Addre
     let admin = Address::generate(env);
     let token_addr = deploy_mock_gov_token(env, 10_000_000);
 
-    let contract_id = env.register_contract(None, GovernanceDaoContract);
+    let contract_id = env.register(GovernanceDaoContract, ());
     let client = GovernanceDaoContractClient::new(env, &contract_id);
     client.initialize(&admin, &token_addr, &100u32, &1_000u32, &51u32, &0i128);
 
@@ -110,7 +110,7 @@ fn setup_with_mock_token(
     let admin = Address::generate(env);
     let token_addr = deploy_mock_gov_token(env, total_supply);
 
-    let contract_id = env.register_contract(None, GovernanceDaoContract);
+    let contract_id = env.register(GovernanceDaoContract, ());
     let client = GovernanceDaoContractClient::new(env, &contract_id);
     client.initialize(&admin, &token_addr, &100u32, &1_000u32, &51u32, &0i128);
 
@@ -134,7 +134,7 @@ fn test_initialize() {
     let admin = Address::generate(&env);
     let token = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, GovernanceDaoContract);
+    let contract_id = env.register(GovernanceDaoContract, ());
     let client = GovernanceDaoContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token, &3600u32, &1000u32, &51u32, &100i128);
 }
@@ -147,7 +147,7 @@ fn test_initialize_twice() {
     let admin = Address::generate(&env);
     let token = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, GovernanceDaoContract);
+    let contract_id = env.register(GovernanceDaoContract, ());
     let client = GovernanceDaoContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token, &3600u32, &1000u32, &51u32, &100i128);
     client.initialize(&admin, &token, &3600u32, &1000u32, &51u32, &100i128);
@@ -161,7 +161,7 @@ fn test_initialize_non_admin_fails() {
     let admin = Address::generate(&env);
     let token = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, GovernanceDaoContract);
+    let contract_id = env.register(GovernanceDaoContract, ());
     let client = GovernanceDaoContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token, &3600u32, &1000u32, &51u32, &100i128);
 }
@@ -402,7 +402,7 @@ fn test_finalize_proposal_rejected_not_enough_for_votes() {
     let admin = Address::generate(&env);
     // total supply = 1_000; pass_threshold = 60%; for=40%, against=60% → Rejected
     let token_addr = deploy_mock_gov_token(&env, 1_000);
-    let contract_id = env.register_contract(None, GovernanceDaoContract);
+    let contract_id = env.register(GovernanceDaoContract, ());
     let client = GovernanceDaoContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &100u32, &1_000u32, &60u32, &0i128);
 
@@ -660,7 +660,7 @@ fn test_execute_proposal_emits_executed_event() {
 
     let (client, admin, _) = setup_with_mock_token(&env, 1_000);
 
-    let target = env.register_contract(None, MockExecutionTarget);
+    let target = env.register(MockExecutionTarget, ());
     let proposer = Address::generate(&env);
     let voter = Address::generate(&env);
     let proposal_id = client.create_proposal(
@@ -860,7 +860,7 @@ fn test_double_vote_after_ttl_window_rejected() {
     // well past the old 15-day / 259_200-ledger TTL window.
     let admin = Address::generate(&env);
     let token_addr = deploy_mock_gov_token(&env, 10_000_000);
-    let contract_id = env.register_contract(None, GovernanceDaoContract);
+    let contract_id = env.register(GovernanceDaoContract, ());
     let client = GovernanceDaoContractClient::new(&env, &contract_id);
     client.initialize(
         &admin,
@@ -908,7 +908,7 @@ fn setup_with_token_gate(
     let admin = Address::generate(env);
     let token_addr = deploy_mock_gov_token(env, total_supply);
 
-    let contract_id = env.register_contract(None, GovernanceDaoContract);
+    let contract_id = env.register(GovernanceDaoContract, ());
     let client = GovernanceDaoContractClient::new(env, &contract_id);
     client.initialize(
         &admin,

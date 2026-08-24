@@ -7,7 +7,7 @@ use soroban_sdk::{
 
 fn setup(env: &Env) -> (GovernanceCoreContractClient<'_>, Address) {
     let admin = Address::generate(env);
-    let id = env.register_contract(None, GovernanceCoreContract);
+    let id = env.register(GovernanceCoreContract, ());
     let c = GovernanceCoreContractClient::new(env, &id);
     c.initialize(&admin);
     (c, admin)
@@ -25,7 +25,7 @@ fn test_initialize() {
 fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, GovernanceCoreContract);
+    let id = env.register(GovernanceCoreContract, ());
     let c = GovernanceCoreContractClient::new(&env, &id);
     let a = Address::generate(&env);
     c.initialize(&a);
@@ -36,7 +36,7 @@ fn test_initialize_twice() {
 #[should_panic]
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
-    let id = env.register_contract(None, GovernanceCoreContract);
+    let id = env.register(GovernanceCoreContract, ());
     let c = GovernanceCoreContractClient::new(&env, &id);
     c.initialize(&Address::generate(&env));
 }

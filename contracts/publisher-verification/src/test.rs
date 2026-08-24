@@ -5,7 +5,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env, String};
 fn setup(env: &Env) -> (PublisherVerificationContractClient<'_>, Address, Address) {
     let admin = Address::generate(env);
     let orchestrator = Address::generate(env);
-    let id = env.register_contract(None, PublisherVerificationContract);
+    let id = env.register(PublisherVerificationContract, ());
     let c = PublisherVerificationContractClient::new(env, &id);
     c.initialize(&admin, &orchestrator);
     (c, admin, orchestrator)
@@ -18,7 +18,7 @@ fn s(env: &Env, v: &str) -> String {
 fn test_initialize() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, PublisherVerificationContract);
+    let id = env.register(PublisherVerificationContract, ());
     let c = PublisherVerificationContractClient::new(&env, &id);
     c.initialize(&Address::generate(&env), &Address::generate(&env));
     assert_eq!(c.get_publisher_count(), 0);
@@ -29,7 +29,7 @@ fn test_initialize() {
 fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, PublisherVerificationContract);
+    let id = env.register(PublisherVerificationContract, ());
     let c = PublisherVerificationContractClient::new(&env, &id);
     let a = Address::generate(&env);
     let o = Address::generate(&env);
@@ -41,7 +41,7 @@ fn test_initialize_twice() {
 #[should_panic]
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
-    let id = env.register_contract(None, PublisherVerificationContract);
+    let id = env.register(PublisherVerificationContract, ());
     let c = PublisherVerificationContractClient::new(&env, &id);
     c.initialize(&Address::generate(&env), &Address::generate(&env));
 }

@@ -34,7 +34,7 @@ fn setup(
     let treasury = Address::generate(env);
     let platform = Address::generate(env);
 
-    let contract_id = env.register_contract(None, RevenueSettlementContract);
+    let contract_id = env.register(RevenueSettlementContract, ());
     let client = RevenueSettlementContractClient::new(env, &contract_id);
     client.initialize(&admin, &token_addr, &treasury, &platform);
 
@@ -48,7 +48,7 @@ fn test_initialize() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, RevenueSettlementContract);
+    let contract_id = env.register(RevenueSettlementContract, ());
     let client = RevenueSettlementContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -73,7 +73,7 @@ fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, RevenueSettlementContract);
+    let contract_id = env.register(RevenueSettlementContract, ());
     let client = RevenueSettlementContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -90,7 +90,7 @@ fn test_initialize_twice() {
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
 
-    let contract_id = env.register_contract(None, RevenueSettlementContract);
+    let contract_id = env.register(RevenueSettlementContract, ());
     let client = RevenueSettlementContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -179,7 +179,7 @@ fn test_distribute_platform_revenue() {
     let treasury = Address::generate(&env);
     let platform = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, RevenueSettlementContract);
+    let contract_id = env.register(RevenueSettlementContract, ());
     let client = RevenueSettlementContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &treasury, &platform);
 
@@ -220,7 +220,7 @@ fn test_total_burned_accumulates_across_distributions() {
     let treasury = Address::generate(&env);
     let platform = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, RevenueSettlementContract);
+    let contract_id = env.register(RevenueSettlementContract, ());
     let client = RevenueSettlementContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &treasury, &platform);
     mint(&env, &token_addr, &contract_id, 10_000_000);
@@ -268,7 +268,7 @@ fn test_claim_publisher_balance() {
     let treasury = Address::generate(&env);
     let platform = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, RevenueSettlementContract);
+    let contract_id = env.register(RevenueSettlementContract, ());
     let client = RevenueSettlementContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &treasury, &platform);
 

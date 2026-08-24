@@ -137,7 +137,7 @@ impl KycRegistryContract {
             let still_valid = existing.verified
                 && existing
                     .expires_at
-                    .map_or(true, |e| e > env.ledger().timestamp());
+                    .is_none_or(|e| e > env.ledger().timestamp());
             if still_valid {
                 panic!("existing verified kyc record must be revoked before re-submitting");
             }

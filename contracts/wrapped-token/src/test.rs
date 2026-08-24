@@ -5,7 +5,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env, String};
 fn setup(env: &Env) -> (WrappedTokenContractClient<'_>, Address, Address) {
     let admin = Address::generate(env);
     let relayer = Address::generate(env);
-    let id = env.register_contract(None, WrappedTokenContract);
+    let id = env.register(WrappedTokenContract, ());
     let c = WrappedTokenContractClient::new(env, &id);
     c.initialize(&admin, &relayer);
     (c, admin, relayer)
@@ -35,7 +35,7 @@ fn test_initialize() {
 fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, WrappedTokenContract);
+    let id = env.register(WrappedTokenContract, ());
     let c = WrappedTokenContractClient::new(&env, &id);
     let a = Address::generate(&env);
     let r = Address::generate(&env);
@@ -47,7 +47,7 @@ fn test_initialize_twice() {
 #[should_panic]
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
-    let id = env.register_contract(None, WrappedTokenContract);
+    let id = env.register(WrappedTokenContract, ());
     let c = WrappedTokenContractClient::new(&env, &id);
     c.initialize(&Address::generate(&env), &Address::generate(&env));
 }

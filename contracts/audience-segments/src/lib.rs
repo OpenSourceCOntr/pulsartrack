@@ -75,7 +75,7 @@ impl AudienceSegmentsContract {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         creator.require_auth();
 
-        if criteria_hash.len() == 0 {
+        if criteria_hash.is_empty() {
             panic!("criteria_hash cannot be empty");
         }
         let counter: u64 = env

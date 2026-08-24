@@ -198,7 +198,7 @@ impl CreativeMarketplaceContract {
             .get::<DataKey, License>(&DataKey::License(listing_id, buyer.clone()))
         {
             // Only block if the license is still valid (not expired)
-            let is_valid = existing_license.expires_at.map_or(true, |exp| exp > env.ledger().timestamp());
+            let is_valid = existing_license.expires_at.is_none_or(|exp| exp > env.ledger().timestamp());
             if is_valid {
                 panic!("already licensed");
             }

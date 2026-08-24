@@ -36,7 +36,7 @@ fn setup(
     let token_admin = Address::generate(env);
     let token_addr = deploy_token(env, &token_admin);
 
-    let contract_id = env.register_contract(None, MultisigTreasuryContract);
+    let contract_id = env.register(MultisigTreasuryContract, ());
     let client = MultisigTreasuryContractClient::new(env, &contract_id);
     client.initialize(&admin, &signers, &2u32); // require 2 of 3
 
@@ -57,7 +57,7 @@ fn test_initialize() {
     let signer = Address::generate(&env);
     let signers = vec![&env, signer.clone()];
 
-    let contract_id = env.register_contract(None, MultisigTreasuryContract);
+    let contract_id = env.register(MultisigTreasuryContract, ());
     let client = MultisigTreasuryContractClient::new(&env, &contract_id);
     client.initialize(&admin, &signers, &1u32);
 
@@ -74,7 +74,7 @@ fn test_initialize_twice() {
     let signer = Address::generate(&env);
     let signers = vec![&env, signer.clone()];
 
-    let contract_id = env.register_contract(None, MultisigTreasuryContract);
+    let contract_id = env.register(MultisigTreasuryContract, ());
     let client = MultisigTreasuryContractClient::new(&env, &contract_id);
     client.initialize(&admin, &signers, &1u32);
     client.initialize(&admin, &signers, &1u32);
@@ -88,7 +88,7 @@ fn test_initialize_non_admin_fails() {
     let signer = Address::generate(&env);
     let signers = vec![&env, signer.clone()];
 
-    let contract_id = env.register_contract(None, MultisigTreasuryContract);
+    let contract_id = env.register(MultisigTreasuryContract, ());
     let client = MultisigTreasuryContractClient::new(&env, &contract_id);
     client.initialize(&admin, &signers, &1u32);
 }
@@ -102,7 +102,7 @@ fn test_initialize_zero_required() {
     let signer = Address::generate(&env);
     let signers = vec![&env, signer.clone()];
 
-    let contract_id = env.register_contract(None, MultisigTreasuryContract);
+    let contract_id = env.register(MultisigTreasuryContract, ());
     let client = MultisigTreasuryContractClient::new(&env, &contract_id);
     client.initialize(&admin, &signers, &0u32);
 }
@@ -116,7 +116,7 @@ fn test_initialize_required_exceeds_signers() {
     let signer = Address::generate(&env);
     let signers = vec![&env, signer.clone()];
 
-    let contract_id = env.register_contract(None, MultisigTreasuryContract);
+    let contract_id = env.register(MultisigTreasuryContract, ());
     let client = MultisigTreasuryContractClient::new(&env, &contract_id);
     client.initialize(&admin, &signers, &5u32);
 }
@@ -334,7 +334,7 @@ fn test_execute_transaction() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, MultisigTreasuryContract);
+    let contract_id = env.register(MultisigTreasuryContract, ());
     let client = MultisigTreasuryContractClient::new(&env, &contract_id);
     client.initialize(&admin, &signers, &2u32);
 

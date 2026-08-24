@@ -30,7 +30,7 @@ fn setup(
     let token_admin = Address::generate(env);
     let token_addr = deploy_token(env, &token_admin);
 
-    let contract_id = env.register_contract(None, PayoutAutomationContract);
+    let contract_id = env.register(PayoutAutomationContract, ());
     let client = PayoutAutomationContractClient::new(env, &contract_id);
     client.initialize(&admin, &token_addr);
 
@@ -46,7 +46,7 @@ fn test_initialize() {
     let admin = Address::generate(&env);
     let token = deploy_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, PayoutAutomationContract);
+    let contract_id = env.register(PayoutAutomationContract, ());
     let client = PayoutAutomationContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token);
 }
@@ -59,7 +59,7 @@ fn test_initialize_twice() {
     let admin = Address::generate(&env);
     let token = deploy_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, PayoutAutomationContract);
+    let contract_id = env.register(PayoutAutomationContract, ());
     let client = PayoutAutomationContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token);
     client.initialize(&admin, &token);
@@ -72,7 +72,7 @@ fn test_initialize_non_admin_fails() {
     let admin = Address::generate(&env);
     let token = deploy_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, PayoutAutomationContract);
+    let contract_id = env.register(PayoutAutomationContract, ());
     let client = PayoutAutomationContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token);
 }
@@ -159,7 +159,7 @@ fn test_execute_payout() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PayoutAutomationContract);
+    let contract_id = env.register(PayoutAutomationContract, ());
     let client = PayoutAutomationContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr);
 
@@ -195,7 +195,7 @@ fn test_execute_payout_too_early() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PayoutAutomationContract);
+    let contract_id = env.register(PayoutAutomationContract, ());
     let client = PayoutAutomationContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr);
 
@@ -224,7 +224,7 @@ fn test_execute_payout_twice() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PayoutAutomationContract);
+    let contract_id = env.register(PayoutAutomationContract, ());
     let client = PayoutAutomationContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr);
 
@@ -247,7 +247,7 @@ fn test_execute_payout_unauthorized() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PayoutAutomationContract);
+    let contract_id = env.register(PayoutAutomationContract, ());
     let client = PayoutAutomationContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr);
 
@@ -311,7 +311,7 @@ fn test_publisher_earnings_updated_after_payout() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PayoutAutomationContract);
+    let contract_id = env.register(PayoutAutomationContract, ());
     let client = PayoutAutomationContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr);
 

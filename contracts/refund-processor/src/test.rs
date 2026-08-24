@@ -14,7 +14,7 @@ fn setup(env: &Env) -> (RefundProcessorContractClient<'_>, Address, Address, Add
     let admin = Address::generate(env);
     let token_admin = Address::generate(env);
     let token = deploy_token(env, &token_admin);
-    let id = env.register_contract(None, RefundProcessorContract);
+    let id = env.register(RefundProcessorContract, ());
     let c = RefundProcessorContractClient::new(env, &id);
     c.initialize(&admin, &token);
     (c, admin, token_admin, token)

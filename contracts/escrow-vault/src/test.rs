@@ -19,7 +19,7 @@ fn setup(env: &Env) -> (EscrowVaultContractClient<'_>, Address, Address, Address
     let oracle = Address::generate(env);
 
     let token_addr = deploy_token(env, &token_admin);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -50,7 +50,7 @@ fn test_initialize() {
     let token = deploy_token(&env, &admin);
     let oracle = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token, &oracle);
 }
@@ -64,7 +64,7 @@ fn test_initialize_twice() {
     let token = deploy_token(&env, &admin);
     let oracle = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token, &oracle);
     client.initialize(&admin, &token, &oracle);
@@ -79,7 +79,7 @@ fn test_initialize_non_admin_fails() {
     let token = deploy_token(&env, &admin);
     let oracle = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token, &oracle);
 }
@@ -96,7 +96,7 @@ fn test_create_escrow() {
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -162,7 +162,7 @@ fn test_create_escrow_invalid_performance_threshold() {
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -191,7 +191,7 @@ fn test_create_escrow_zero_time_lock_duration() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -221,7 +221,7 @@ fn test_approve_release() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -289,7 +289,7 @@ fn test_approve_release_unauthorized() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -323,7 +323,7 @@ fn test_release_escrow() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -365,7 +365,7 @@ fn test_release_escrow_time_lock_active() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -398,7 +398,7 @@ fn test_release_escrow_no_approval() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -432,7 +432,7 @@ fn test_release_escrow_unauthorized_caller() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -467,7 +467,7 @@ fn test_release_partial() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -508,7 +508,7 @@ fn test_release_partial_exceeds_locked() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -541,7 +541,7 @@ fn test_release_after_partial_released_amount_correct() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -584,7 +584,7 @@ fn test_refund_escrow() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -629,7 +629,7 @@ fn test_refund_escrow_not_expired() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -662,7 +662,7 @@ fn test_update_performance() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -699,7 +699,7 @@ fn test_update_performance_unauthorized() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -732,7 +732,7 @@ fn test_release_blocked_by_performance_threshold() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -769,7 +769,7 @@ fn test_hold_for_fraud() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -807,7 +807,7 @@ fn test_release_disputed_escrow_fails() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 
@@ -845,7 +845,7 @@ fn test_can_release_returns_true_when_conditions_met() {
     let token_addr = deploy_token(&env, &token_admin);
     let admin = Address::generate(&env);
     let oracle = Address::generate(&env);
-    let contract_id = env.register_contract(None, EscrowVaultContract);
+    let contract_id = env.register(EscrowVaultContract, ());
     let client = EscrowVaultContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr, &oracle);
 

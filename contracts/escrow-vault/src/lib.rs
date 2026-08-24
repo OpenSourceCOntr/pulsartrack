@@ -214,7 +214,7 @@ impl EscrowVaultContract {
             .instance()
             .get(&DataKey::MinApprovalThreshold)
             .unwrap_or(1);
-        if (required_approvers.len() as u32) < min_threshold {
+        if required_approvers.len() < min_threshold {
             panic!("not enough approvers for required threshold");
         }
 
@@ -269,7 +269,7 @@ impl EscrowVaultContract {
             );
         }
 
-        let required_count = required_approvers.len() as u32;
+        let required_count = required_approvers.len();
         let _ttl_key = DataKey::RequiredApproverCount(escrow_id);
         env.storage().persistent().set(&_ttl_key, &required_count);
         env.storage().persistent().extend_ttl(

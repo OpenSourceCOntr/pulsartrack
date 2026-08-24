@@ -21,7 +21,7 @@ fn setup(
     let admin = Address::generate(env);
     let token_admin = Address::generate(env);
     let token = deploy_token(env, &token_admin);
-    let id = env.register_contract(None, CreativeMarketplaceContract);
+    let id = env.register(CreativeMarketplaceContract, ());
     let c = CreativeMarketplaceContractClient::new(env, &id);
     c.initialize(&admin, &token);
     (c, admin, token_admin, token)

@@ -21,7 +21,7 @@ fn setup(env: &Env) -> (VestingScheduleContractClient<'_>, Address, Address) {
     let admin = Address::generate(env);
     let token_admin = Address::generate(env);
     let token_addr = deploy_token(env, &token_admin);
-    let contract_id = env.register_contract(None, VestingScheduleContract);
+    let contract_id = env.register(VestingScheduleContract, ());
     let client = VestingScheduleContractClient::new(env, &contract_id);
     client.initialize(&admin);
     (client, admin, token_addr)

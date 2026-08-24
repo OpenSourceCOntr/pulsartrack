@@ -30,7 +30,7 @@ fn setup(
     let token_admin = Address::generate(env);
     let token_addr = deploy_token(env, &token_admin);
 
-    let contract_id = env.register_contract(None, DisputeResolutionContract);
+    let contract_id = env.register(DisputeResolutionContract, ());
     let client = DisputeResolutionContractClient::new(env, &contract_id);
     client.initialize(&admin, &token_addr, &1000i128);
 
@@ -52,7 +52,7 @@ fn test_initialize() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, DisputeResolutionContract);
+    let contract_id = env.register(DisputeResolutionContract, ());
     let client = DisputeResolutionContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -68,7 +68,7 @@ fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, DisputeResolutionContract);
+    let contract_id = env.register(DisputeResolutionContract, ());
     let client = DisputeResolutionContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -84,7 +84,7 @@ fn test_initialize_twice() {
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
 
-    let contract_id = env.register_contract(None, DisputeResolutionContract);
+    let contract_id = env.register(DisputeResolutionContract, ());
     let client = DisputeResolutionContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);

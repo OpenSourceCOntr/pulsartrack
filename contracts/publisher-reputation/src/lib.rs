@@ -118,7 +118,7 @@ impl PublisherReputationContract {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
         advertiser.require_auth();
 
-        if rating < 1 || rating > 5 {
+        if !(1..=5).contains(&rating) {
             panic!("invalid rating");
         }
 
@@ -176,11 +176,11 @@ impl PublisherReputationContract {
         if positive {
             rep.positive_reviews += 1;
             // Increase score (max 1000)
-            rep.score = (rep.score + rating as u32 * 2).min(1000);
+            rep.score = (rep.score + rating * 2).min(1000);
         } else {
             rep.negative_reviews += 1;
             // Decrease score (min 0)
-            rep.score = rep.score.saturating_sub(rating as u32 * 3);
+            rep.score = rep.score.saturating_sub(rating * 3);
         }
         rep.last_updated = env.ledger().timestamp();
 

@@ -8,7 +8,7 @@ use soroban_sdk::{
 fn setup(env: &Env) -> (MilestoneTrackerContractClient<'_>, Address, Address) {
     let admin = Address::generate(env);
     let oracle = Address::generate(env);
-    let id = env.register_contract(None, MilestoneTrackerContract);
+    let id = env.register(MilestoneTrackerContract, ());
     let c = MilestoneTrackerContractClient::new(env, &id);
     c.initialize(&admin, &oracle);
     (c, admin, oracle)

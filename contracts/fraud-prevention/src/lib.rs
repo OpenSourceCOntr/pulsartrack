@@ -363,7 +363,7 @@ impl FraudPreventionContract {
         if admin != stored_admin {
             panic!("unauthorized");
         }
-        if threshold < 50 || threshold > 100 {
+        if !(50..=100).contains(&threshold) {
             panic!("invalid threshold");
         }
         env.storage()
@@ -511,7 +511,10 @@ impl FraudPreventionContract {
     }
 }
 
-// External contract clients wrapped in a module to avoid symbol name conflicts
+// External contract clients wrapped in a module to avoid symbol name conflicts.
+// The structs/impls below are only invoked as contract endpoints (via their
+// generated Client), so rustc's dead-code analysis can't see the usage.
+#[allow(dead_code)]
 mod mocks {
     use super::*;
 

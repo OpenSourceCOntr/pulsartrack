@@ -10,7 +10,7 @@ use soroban_sdk::{
 fn setup(env: &Env) -> (FraudPreventionContractClient<'_>, Address) {
     let admin = Address::generate(env);
 
-    let contract_id = env.register_contract(None, FraudPreventionContract);
+    let contract_id = env.register(FraudPreventionContract, ());
     let client = FraudPreventionContractClient::new(env, &contract_id);
     client.initialize(&admin);
 
@@ -24,7 +24,7 @@ fn test_initialize() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, FraudPreventionContract);
+    let contract_id = env.register(FraudPreventionContract, ());
     let client = FraudPreventionContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -38,7 +38,7 @@ fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, FraudPreventionContract);
+    let contract_id = env.register(FraudPreventionContract, ());
     let client = FraudPreventionContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -52,7 +52,7 @@ fn test_initialize_twice() {
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
 
-    let contract_id = env.register_contract(None, FraudPreventionContract);
+    let contract_id = env.register(FraudPreventionContract, ());
     let client = FraudPreventionContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -252,7 +252,7 @@ fn test_suspend_publisher_admin() {
     let (client, admin) = setup(&env);
 
     let lifecycle = Address::generate(&env);
-    let network = env.register_contract(None, mocks::PublisherNetworkContract);
+    let network = env.register(mocks::PublisherNetworkContract, ());
     let vault = Address::generate(&env);
     let publisher = Address::generate(&env);
 
@@ -420,7 +420,7 @@ fn test_fraud_integration() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, FraudPreventionContract);
+    let contract_id = env.register(FraudPreventionContract, ());
     let client = FraudPreventionContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);

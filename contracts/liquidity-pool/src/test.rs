@@ -18,7 +18,7 @@ fn setup(env: &Env) -> (LiquidityPoolContractClient<'_>, Address, Address, Addre
     let admin = Address::generate(env);
     let token_admin = Address::generate(env);
     let token = deploy_token(env, &token_admin);
-    let contract_id = env.register_contract(None, LiquidityPoolContract);
+    let contract_id = env.register(LiquidityPoolContract, ());
     let c = LiquidityPoolContractClient::new(env, &contract_id);
     c.initialize(&admin, &token);
     (c, admin, token_admin, token)
@@ -367,7 +367,7 @@ fn test_accrue_interest() {
     let interest = c.accrue_interest(&admin, &1u64);
 
     // At 5% annual rate on 100,000: interest should be ~5,000
-    assert!(interest >= 4_900 && interest <= 5_100);
+    assert!((4_900..=5_100).contains(&interest));
 
     let borrow = c.get_borrow(&1u64).unwrap();
     assert_eq!(borrow.interest_accrued, interest);
@@ -464,7 +464,7 @@ fn test_interest_calculation_over_time() {
     });
 
     let interest_6mo = c.accrue_interest(&borrower, &1u64);
-    assert!(interest_6mo >= 2_400 && interest_6mo <= 2_600); // ~2.5% of 100k
+    assert!((2_400..=2_600).contains(&interest_6mo)); // ~2.5% of 100k
 
     // Check interest after another 6 months (1 year total)
     env.ledger().with_mut(|li| {
@@ -472,7 +472,7 @@ fn test_interest_calculation_over_time() {
     });
 
     let interest_1yr = c.accrue_interest(&borrower, &1u64);
-    assert!(interest_1yr >= 4_900 && interest_1yr <= 5_100); // ~5% of 100k
+    assert!((4_900..=5_100).contains(&interest_1yr)); // ~5% of 100k
 }
 
 #[test]
@@ -535,7 +535,7 @@ fn test_lender_earns_yield_on_withdrawal() {
     // total_liquidity grew from 500,000 to ~504,500
     // Withdrawing all shares should return ~504,500
     let withdrawn = c.withdraw(&provider, &shares);
-    assert!(withdrawn >= 504_400 && withdrawn <= 504_600);
+    assert!((504_400..=504_600).contains(&withdrawn));
 }
 
 #[test]

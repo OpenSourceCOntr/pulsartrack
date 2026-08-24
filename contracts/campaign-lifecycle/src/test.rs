@@ -7,7 +7,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env, String};
 fn setup(env: &Env) -> (CampaignLifecycleContractClient<'_>, Address) {
     let admin = Address::generate(env);
 
-    let contract_id = env.register_contract(None, CampaignLifecycleContract);
+    let contract_id = env.register(CampaignLifecycleContract, ());
     let client = CampaignLifecycleContractClient::new(env, &contract_id);
     client.initialize(&admin);
 
@@ -25,7 +25,7 @@ fn test_initialize() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, CampaignLifecycleContract);
+    let contract_id = env.register(CampaignLifecycleContract, ());
     let client = CampaignLifecycleContractClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
     client.initialize(&admin);
@@ -37,7 +37,7 @@ fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let contract_id = env.register_contract(None, CampaignLifecycleContract);
+    let contract_id = env.register(CampaignLifecycleContract, ());
     let client = CampaignLifecycleContractClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
     client.initialize(&admin);
@@ -49,7 +49,7 @@ fn test_initialize_twice() {
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
 
-    let contract_id = env.register_contract(None, CampaignLifecycleContract);
+    let contract_id = env.register(CampaignLifecycleContract, ());
     let client = CampaignLifecycleContractClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
     client.initialize(&admin);
@@ -308,7 +308,7 @@ fn test_pause_for_fraud() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, CampaignLifecycleContract);
+    let contract_id = env.register(CampaignLifecycleContract, ());
     let client = CampaignLifecycleContractClient::new(&env, &contract_id);
     client.initialize(&admin);
 

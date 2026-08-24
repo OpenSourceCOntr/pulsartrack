@@ -4,7 +4,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 fn setup(env: &Env) -> (SubscriptionBenefitsContractClient<'_>, Address) {
     let admin = Address::generate(env);
-    let id = env.register_contract(None, SubscriptionBenefitsContract);
+    let id = env.register(SubscriptionBenefitsContract, ());
     let c = SubscriptionBenefitsContractClient::new(env, &id);
     c.initialize(&admin);
     (c, admin)
@@ -25,7 +25,7 @@ fn test_initialize() {
 fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, SubscriptionBenefitsContract);
+    let id = env.register(SubscriptionBenefitsContract, ());
     let c = SubscriptionBenefitsContractClient::new(&env, &id);
     let a = Address::generate(&env);
     c.initialize(&a);

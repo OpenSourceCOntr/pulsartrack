@@ -310,12 +310,12 @@ impl LiquidityPoolContract {
 
         // interest = principal * rate_bps * time_elapsed / (10000 * SECONDS_PER_YEAR)
         // Using i128 to avoid overflow
-        let interest = (borrowed as i128)
+        
+
+        borrowed
             .saturating_mul(rate_bps as i128)
             .saturating_mul(time_elapsed as i128)
-            / (10000i128 * SECONDS_PER_YEAR as i128);
-
-        interest
+            / (10000i128 * SECONDS_PER_YEAR as i128)
     }
 
     /// Accrue interest on a borrow position

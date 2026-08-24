@@ -5,7 +5,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env};
 fn setup(env: &Env) -> (AnalyticsAggregatorContractClient<'_>, Address, Address) {
     let admin = Address::generate(env);
     let oracle = Address::generate(env);
-    let id = env.register_contract(None, AnalyticsAggregatorContract);
+    let id = env.register(AnalyticsAggregatorContract, ());
     let c = AnalyticsAggregatorContractClient::new(env, &id);
     c.initialize(&admin, &oracle);
     (c, admin, oracle)
@@ -23,7 +23,7 @@ fn test_initialize() {
 fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, AnalyticsAggregatorContract);
+    let id = env.register(AnalyticsAggregatorContract, ());
     let c = AnalyticsAggregatorContractClient::new(&env, &id);
     let a = Address::generate(&env);
     let o = Address::generate(&env);
@@ -35,7 +35,7 @@ fn test_initialize_twice() {
 #[should_panic]
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
-    let id = env.register_contract(None, AnalyticsAggregatorContract);
+    let id = env.register(AnalyticsAggregatorContract, ());
     let c = AnalyticsAggregatorContractClient::new(&env, &id);
     c.initialize(&Address::generate(&env), &Address::generate(&env));
 }

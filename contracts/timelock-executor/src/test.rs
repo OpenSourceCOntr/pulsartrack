@@ -20,7 +20,7 @@ fn setup(env: &Env) -> (TimelockExecutorContractClient<'_>, Address, Address) {
     let admin = Address::generate(env);
     let executor = Address::generate(env);
 
-    let contract_id = env.register_contract(None, TimelockExecutorContract);
+    let contract_id = env.register(TimelockExecutorContract, ());
     let client = TimelockExecutorContractClient::new(env, &contract_id);
     // min_delay=100, max_delay=86400
     client.initialize(&admin, &executor, &100u64, &86_400u64);
@@ -45,7 +45,7 @@ fn test_initialize() {
     let admin = Address::generate(&env);
     let executor = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, TimelockExecutorContract);
+    let contract_id = env.register(TimelockExecutorContract, ());
     let client = TimelockExecutorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &executor, &3600u64, &86_400u64);
 }
@@ -58,7 +58,7 @@ fn test_initialize_twice() {
     let admin = Address::generate(&env);
     let executor = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, TimelockExecutorContract);
+    let contract_id = env.register(TimelockExecutorContract, ());
     let client = TimelockExecutorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &executor, &3600u64, &86_400u64);
     client.initialize(&admin, &executor, &3600u64, &86_400u64);
@@ -71,7 +71,7 @@ fn test_initialize_non_admin_fails() {
     let admin = Address::generate(&env);
     let executor = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, TimelockExecutorContract);
+    let contract_id = env.register(TimelockExecutorContract, ());
     let client = TimelockExecutorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &executor, &3600u64, &86_400u64);
 }
@@ -175,7 +175,7 @@ fn test_execute_entry() {
     env.mock_all_auths();
     let (client, admin, executor) = setup(&env);
     // Register a real contract so invoke_contract inside execute() can succeed.
-    let target = env.register_contract(None, NoOpTarget);
+    let target = env.register(NoOpTarget, ());
 
     let entry_id = client.queue(
         &admin,

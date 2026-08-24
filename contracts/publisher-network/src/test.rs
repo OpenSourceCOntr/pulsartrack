@@ -4,7 +4,7 @@ use soroban_sdk::{testutils::Address as _, vec, Address, Env, String};
 
 fn setup(env: &Env) -> (PublisherNetworkContractClient<'_>, Address) {
     let admin = Address::generate(env);
-    let id = env.register_contract(None, PublisherNetworkContract);
+    let id = env.register(PublisherNetworkContract, ());
     let c = PublisherNetworkContractClient::new(env, &id);
     c.initialize(&admin);
     (c, admin)
@@ -17,7 +17,7 @@ fn s(env: &Env, v: &str) -> String {
 fn test_initialize() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, PublisherNetworkContract);
+    let id = env.register(PublisherNetworkContract, ());
     let c = PublisherNetworkContractClient::new(&env, &id);
     c.initialize(&Address::generate(&env));
     assert_eq!(c.get_node_count(), 0);
@@ -30,7 +30,7 @@ fn test_initialize() {
 fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, PublisherNetworkContract);
+    let id = env.register(PublisherNetworkContract, ());
     let c = PublisherNetworkContractClient::new(&env, &id);
     let a = Address::generate(&env);
     c.initialize(&a);
@@ -41,7 +41,7 @@ fn test_initialize_twice() {
 #[should_panic]
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
-    let id = env.register_contract(None, PublisherNetworkContract);
+    let id = env.register(PublisherNetworkContract, ());
     let c = PublisherNetworkContractClient::new(&env, &id);
     c.initialize(&Address::generate(&env));
 }

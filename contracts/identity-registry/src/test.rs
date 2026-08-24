@@ -4,7 +4,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 fn setup(env: &Env) -> (IdentityRegistryContractClient<'_>, Address) {
     let admin = Address::generate(env);
-    let id = env.register_contract(None, IdentityRegistryContract);
+    let id = env.register(IdentityRegistryContract, ());
     let c = IdentityRegistryContractClient::new(env, &id);
     c.initialize(&admin);
     (c, admin)
@@ -36,7 +36,7 @@ impl MockKycRegistry {
 fn test_initialize() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, IdentityRegistryContract);
+    let id = env.register(IdentityRegistryContract, ());
     let c = IdentityRegistryContractClient::new(&env, &id);
     c.initialize(&Address::generate(&env));
     assert_eq!(c.get_identity_count(), 0);
@@ -47,7 +47,7 @@ fn test_initialize() {
 fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, IdentityRegistryContract);
+    let id = env.register(IdentityRegistryContract, ());
     let c = IdentityRegistryContractClient::new(&env, &id);
     let a = Address::generate(&env);
     c.initialize(&a);
@@ -58,7 +58,7 @@ fn test_initialize_twice() {
 #[should_panic]
 fn test_initialize_non_admin_fails() {
     let env = Env::default();
-    let id = env.register_contract(None, IdentityRegistryContract);
+    let id = env.register(IdentityRegistryContract, ());
     let c = IdentityRegistryContractClient::new(&env, &id);
     c.initialize(&Address::generate(&env));
 }
@@ -168,7 +168,7 @@ fn test_verify_identity_with_kyc() {
     let account = Address::generate(&env);
 
     // Register mock KYC contract
-    let kyc_id = env.register_contract(None, MockKycRegistry);
+    let kyc_id = env.register(MockKycRegistry, ());
     let _kyc_client = MockKycRegistryClient::new(&env, &kyc_id);
 
     // Configure identity registry to use mock KYC
@@ -193,7 +193,7 @@ fn test_verify_identity_fails_without_kyc() {
     let (c, admin) = setup(&env);
     let account = Address::generate(&env);
 
-    let kyc_id = env.register_contract(None, MockKycRegistry);
+    let kyc_id = env.register(MockKycRegistry, ());
     c.set_kyc_registry(&admin, &kyc_id);
 
     c.register(
@@ -213,7 +213,7 @@ fn test_verify_identity_success_with_kyc() {
     let (c, admin) = setup(&env);
     let account = Address::generate(&env);
 
-    let kyc_id = env.register_contract(None, MockKycRegistry);
+    let kyc_id = env.register(MockKycRegistry, ());
     let kyc_client = MockKycRegistryClient::new(&env, &kyc_id);
     c.set_kyc_registry(&admin, &kyc_id);
 
@@ -238,7 +238,7 @@ fn test_set_kyc_registry_unauthorized() {
     let env = Env::default();
     env.mock_all_auths();
     let (c, _) = setup(&env);
-    let kyc_id = env.register_contract(None, MockKycRegistry);
+    let kyc_id = env.register(MockKycRegistry, ());
 
     let res = c.try_set_kyc_registry(&Address::generate(&env), &kyc_id);
     assert!(res.is_err());

@@ -23,7 +23,7 @@ fn setup(env: &Env) -> (AuctionEngineContractClient<'_>, Address, Address, Addre
     let token_admin = Address::generate(env);
     let token_addr = deploy_token(env, &token_admin);
 
-    let contract_id = env.register_contract(None, AuctionEngineContract);
+    let contract_id = env.register(AuctionEngineContract, ());
     let client = AuctionEngineContractClient::new(env, &contract_id);
     client.initialize(&admin, &token_addr);
 
@@ -43,7 +43,7 @@ fn test_initialize() {
     let admin = Address::generate(&env);
     let token = deploy_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, AuctionEngineContract);
+    let contract_id = env.register(AuctionEngineContract, ());
     let client = AuctionEngineContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token);
 }
@@ -56,7 +56,7 @@ fn test_initialize_twice() {
     let admin = Address::generate(&env);
     let token = deploy_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, AuctionEngineContract);
+    let contract_id = env.register(AuctionEngineContract, ());
     let client = AuctionEngineContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token);
     client.initialize(&admin, &token);
@@ -69,7 +69,7 @@ fn test_initialize_non_admin_fails() {
     let admin = Address::generate(&env);
     let token = deploy_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, AuctionEngineContract);
+    let contract_id = env.register(AuctionEngineContract, ());
     let client = AuctionEngineContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token);
 }
@@ -280,7 +280,7 @@ fn test_settle_auction_with_winner() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, AuctionEngineContract);
+    let contract_id = env.register(AuctionEngineContract, ());
     let client = AuctionEngineContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr);
 
@@ -321,7 +321,7 @@ fn test_settle_auction_below_reserve_cancelled() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, AuctionEngineContract);
+    let contract_id = env.register(AuctionEngineContract, ());
     let client = AuctionEngineContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr);
 
@@ -426,7 +426,7 @@ fn test_admin_can_settle_before_end_time() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, AuctionEngineContract);
+    let contract_id = env.register(AuctionEngineContract, ());
     let client = AuctionEngineContractClient::new(&env, &contract_id);
     client.initialize(&admin, &token_addr);
 

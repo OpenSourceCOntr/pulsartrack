@@ -261,17 +261,14 @@ impl AnomalyDetectorContract {
 
         // Auto-flag critical publisher anomalies
         if let Some(ref pub_addr) = publisher {
-            match severity {
-                AnomalySeverity::Critical => {
-                    let _ttl_key = DataKey::FlaggedPublisher(pub_addr.clone());
-                    env.storage().persistent().set(&_ttl_key, &true);
-                    env.storage().persistent().extend_ttl(
-                        &_ttl_key,
-                        PERSISTENT_LIFETIME_THRESHOLD,
-                        PERSISTENT_BUMP_AMOUNT,
-                    );
-                }
-                _ => {}
+            if let AnomalySeverity::Critical = severity {
+                let _ttl_key = DataKey::FlaggedPublisher(pub_addr.clone());
+                env.storage().persistent().set(&_ttl_key, &true);
+                env.storage().persistent().extend_ttl(
+                    &_ttl_key,
+                    PERSISTENT_LIFETIME_THRESHOLD,
+                    PERSISTENT_BUMP_AMOUNT,
+                );
             }
         }
 

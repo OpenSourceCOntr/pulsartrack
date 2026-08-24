@@ -32,7 +32,7 @@ fn setup(
     let token_admin = Address::generate(env);
     let token_addr = deploy_token(env, &token_admin);
 
-    let contract_id = env.register_contract(None, PaymentProcessorContract);
+    let contract_id = env.register(PaymentProcessorContract, ());
     let client = PaymentProcessorContractClient::new(env, &contract_id);
     client.initialize(&admin, &treasury);
 
@@ -48,7 +48,7 @@ fn test_initialize() {
     let admin = Address::generate(&env);
     let treasury = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, PaymentProcessorContract);
+    let contract_id = env.register(PaymentProcessorContract, ());
     let client = PaymentProcessorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &treasury);
 }
@@ -61,7 +61,7 @@ fn test_initialize_twice() {
     let admin = Address::generate(&env);
     let treasury = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, PaymentProcessorContract);
+    let contract_id = env.register(PaymentProcessorContract, ());
     let client = PaymentProcessorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &treasury);
     client.initialize(&admin, &treasury);
@@ -74,7 +74,7 @@ fn test_initialize_non_admin_fails() {
     let admin = Address::generate(&env);
     let treasury = Address::generate(&env);
 
-    let contract_id = env.register_contract(None, PaymentProcessorContract);
+    let contract_id = env.register(PaymentProcessorContract, ());
     let client = PaymentProcessorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &treasury);
 }
@@ -133,7 +133,7 @@ fn test_process_payment() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PaymentProcessorContract);
+    let contract_id = env.register(PaymentProcessorContract, ());
     let client = PaymentProcessorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &treasury);
     client.add_token(&admin, &token_addr, &1_000i128, &100_000_000i128);
@@ -182,7 +182,7 @@ fn test_process_payment_fee_split() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PaymentProcessorContract);
+    let contract_id = env.register(PaymentProcessorContract, ());
     let client = PaymentProcessorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &treasury);
     client.add_token(&admin, &token_addr, &1_000i128, &100_000_000i128);
@@ -212,7 +212,7 @@ fn test_payment_records_stored() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PaymentProcessorContract);
+    let contract_id = env.register(PaymentProcessorContract, ());
     let client = PaymentProcessorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &treasury);
     client.add_token(&admin, &token_addr, &1_000i128, &100_000_000i128);
@@ -239,7 +239,7 @@ fn test_user_stats_updated() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PaymentProcessorContract);
+    let contract_id = env.register(PaymentProcessorContract, ());
     let client = PaymentProcessorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &treasury);
     client.add_token(&admin, &token_addr, &1_000i128, &100_000_000i128);
@@ -266,7 +266,7 @@ fn test_revenue_stats_updated() {
     let token_admin = Address::generate(&env);
     let token_addr = deploy_token(&env, &token_admin);
 
-    let contract_id = env.register_contract(None, PaymentProcessorContract);
+    let contract_id = env.register(PaymentProcessorContract, ());
     let client = PaymentProcessorContractClient::new(&env, &contract_id);
     client.initialize(&admin, &treasury);
     client.add_token(&admin, &token_addr, &1_000i128, &100_000_000i128);

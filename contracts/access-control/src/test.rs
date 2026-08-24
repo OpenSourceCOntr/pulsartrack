@@ -4,7 +4,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env};
 
 fn setup(env: &Env) -> (AccessControlContractClient<'_>, Address) {
     let admin = Address::generate(env);
-    let id = env.register_contract(None, AccessControlContract);
+    let id = env.register(AccessControlContract, ());
     let c = AccessControlContractClient::new(env, &id);
     c.initialize(&admin);
     (c, admin)
@@ -23,7 +23,7 @@ fn test_initialize() {
 fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, AccessControlContract);
+    let id = env.register(AccessControlContract, ());
     let c = AccessControlContractClient::new(&env, &id);
     let a = Address::generate(&env);
     c.initialize(&a);

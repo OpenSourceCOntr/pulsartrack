@@ -2,9 +2,9 @@
 use super::*;
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String};
 
-fn setup(env: &Env) -> (PrivacyLayerContractClient, Address) {
+fn setup(env: &Env) -> (PrivacyLayerContractClient<'_>, Address) {
     let admin = Address::generate(env);
-    let id = env.register_contract(None, PrivacyLayerContract);
+    let id = env.register(PrivacyLayerContract, ());
     let c = PrivacyLayerContractClient::new(env, &id);
     c.initialize(&admin);
     (c, admin)
@@ -25,7 +25,7 @@ fn test_initialize() {
 fn test_initialize_twice() {
     let env = Env::default();
     env.mock_all_auths();
-    let id = env.register_contract(None, PrivacyLayerContract);
+    let id = env.register(PrivacyLayerContract, ());
     let c = PrivacyLayerContractClient::new(&env, &id);
     let a = Address::generate(&env);
     c.initialize(&a);

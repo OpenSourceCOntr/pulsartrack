@@ -1,9 +1,9 @@
 #![cfg(test)]
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, MockAuth, MockAuthInvoke},
+    testutils::Address as _,
     token::{Client as TokenClient, StellarAssetClient},
-    Address, Env, IntoVal,
+    Address, Env,
 };
 
 fn setup(env: &Env) -> (TreasuryManagerContractClient<'_>, Address, Address) {
@@ -12,7 +12,7 @@ fn setup(env: &Env) -> (TreasuryManagerContractClient<'_>, Address, Address) {
     let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
     let token_addr = token_id.address();
 
-    let id = env.register_contract(None, TreasuryManagerContract);
+    let id = env.register(TreasuryManagerContract, ());
     let c = TreasuryManagerContractClient::new(env, &id);
     env.mock_all_auths();
     c.initialize(&admin, &token_addr);

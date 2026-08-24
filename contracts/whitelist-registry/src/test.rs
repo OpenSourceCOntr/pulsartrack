@@ -7,7 +7,7 @@ use soroban_sdk::{
 
 fn setup(env: &Env) -> (WhitelistRegistryContractClient<'_>, Address) {
     let admin = Address::generate(env);
-    let id = env.register_contract(None, WhitelistRegistryContract);
+    let id = env.register(WhitelistRegistryContract, ());
     let c = WhitelistRegistryContractClient::new(env, &id);
     c.initialize(&admin);
     (c, admin)
