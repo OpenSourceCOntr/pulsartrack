@@ -50,6 +50,9 @@ fn test_record_impression() {
     let a = c.get_campaign_analytics(&1u64).unwrap();
     assert_eq!(a.total_impressions, 1);
     assert_eq!(a.unique_viewers, 1);
+    let stats = c.get_global_stats();
+    assert_eq!(stats.total_campaigns, 1);
+    assert_eq!(stats.total_impressions, 1);
 }
 
 #[test]
@@ -102,6 +105,41 @@ fn test_record_impression_tracks_unique_viewers() {
     let a = c.get_campaign_analytics(&1u64).unwrap();
     assert_eq!(a.total_impressions, 3);
     assert_eq!(a.unique_viewers, 2);
+    let stats = c.get_global_stats();
+    assert_eq!(stats.total_campaigns, 1);
+}
+
+#[test]
+fn test_total_campaigns_not_double_counted() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, _, oracle) = setup(&env);
+    let viewer = Address::generate(&env);
+
+    c.record_impression(&oracle, &1u64, &viewer, &100i128);
+    c.record_impression(&oracle, &1u64, &viewer, &100i128);
+    c.record_impression(&oracle, &1u64, &viewer, &100i128);
+
+    let stats = c.get_global_stats();
+    assert_eq!(stats.total_campaigns, 1);
+    assert_eq!(stats.total_impressions, 3);
+}
+
+#[test]
+fn test_total_campaigns_counts_distinct_campaigns() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, _, oracle) = setup(&env);
+    let viewer = Address::generate(&env);
+
+    c.record_impression(&oracle, &1u64, &viewer, &100i128);
+    c.record_impression(&oracle, &2u64, &viewer, &200i128);
+    c.record_impression(&oracle, &3u64, &viewer, &300i128);
+
+    let stats = c.get_global_stats();
+    assert_eq!(stats.total_campaigns, 3);
+    assert_eq!(stats.total_impressions, 3);
+    assert_eq!(stats.total_spend, 600);
 }
 
 #[test]
@@ -137,6 +175,27 @@ fn test_get_global_stats() {
     let (c, _, _) = setup(&env);
     let stats = c.get_global_stats();
     assert_eq!(stats.total_campaigns, 0);
+    assert_eq!(stats.total_impressions, 0);
+    assert_eq!(stats.total_clicks, 0);
+    assert_eq!(stats.total_spend, 0);
+}
+
+#[test]
+fn test_get_global_stats_after_multiple_campaigns() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, _, oracle) = setup(&env);
+    let viewer = Address::generate(&env);
+
+    c.record_impression(&oracle, &1u64, &viewer, &100i128);
+    c.record_impression(&oracle, &2u64, &viewer, &200i128);
+    c.record_click(&oracle, &1u64);
+
+    let stats = c.get_global_stats();
+    assert_eq!(stats.total_campaigns, 2);
+    assert_eq!(stats.total_impressions, 2);
+    assert_eq!(stats.total_clicks, 1);
+    assert_eq!(stats.total_spend, 300);
 }
 
 #[test]
