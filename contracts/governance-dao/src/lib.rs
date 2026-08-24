@@ -247,6 +247,17 @@ impl GovernanceDaoContract {
             panic!("already voted");
         }
 
+        let gov_token: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::GovernanceToken)
+            .unwrap();
+        let token_client = token::Client::new(&env, &gov_token);
+        let balance = token_client.balance(&voter);
+        if power > balance {
+            panic!("insufficient governance tokens");
+        }
+
         let mut proposal: Proposal = env
             .storage()
             .persistent()
@@ -264,29 +275,6 @@ impl GovernanceDaoContract {
         if power <= 0 {
             panic!("invalid voting power");
         }
-
-        let gov_token: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::GovernanceToken)
-            .unwrap();
-            
-        let snapshot_power: Option<i128> = env.invoke_contract(
-            &gov_token,
-            &soroban_sdk::Symbol::new(&env, "get_voting_snapshot"),
-            soroban_sdk::vec![&env, voter.into_val(&env), proposal.start_ledger.into_val(&env)],
-        );
-
-        let balance = match snapshot_power {
-            Some(p) => p,
-            None => panic!("no voting snapshot found for proposal start ledger"),
-        };
-
-        if power > balance {
-            panic!("insufficient governance tokens");
-        }
-        
-        let token_client = token::Client::new(&env, &gov_token);
 
         let vote = Vote {
             choice: choice.clone(),
