@@ -278,10 +278,6 @@ impl DisputeResolutionContract {
             _ => {}
         }
 
-        if outcome == DisputeOutcome::Pending {
-            panic!("Pending is not a valid resolution outcome");
-        }
-
         let (claimant_amount, respondent_amount) = match &outcome {
             DisputeOutcome::Claimant => (dispute.claim_amount, 0),
             DisputeOutcome::Respondent => (0, dispute.claim_amount),
@@ -289,7 +285,7 @@ impl DisputeResolutionContract {
                 let claimant_part = dispute.claim_amount / 2;
                 (claimant_part, dispute.claim_amount - claimant_part)
             }
-            DisputeOutcome::NoAction => (0, 0),
+            DisputeOutcome::NoAction | DisputeOutcome::Pending => (0, 0),
         };
 
         dispute.outcome = outcome;
