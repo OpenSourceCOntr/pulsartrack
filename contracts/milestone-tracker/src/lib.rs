@@ -246,6 +246,10 @@ impl MilestoneTrackerContract {
             .get(&DataKey::Milestone(milestone_id))
             .expect("milestone not found");
 
+        if milestone.status != MilestoneStatus::Disputed {
+            panic!("can only resolve a Disputed milestone");
+        }
+
         milestone.status = if achieved {
             MilestoneStatus::Achieved
         } else {
@@ -303,6 +307,20 @@ impl MilestoneTrackerContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+    }
+
+    pub fn set_oracle(env: Env, admin: Address, new_oracle: Address) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        admin.require_auth();
+        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if admin != stored_admin {
+            panic!("unauthorized");
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::OracleAddress, &new_oracle);
     }
 
     pub fn get_campaign_milestone_count(env: Env, campaign_id: u64) -> u64 {
