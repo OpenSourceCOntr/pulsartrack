@@ -140,19 +140,23 @@ impl GovernanceCoreContract {
             panic!("unauthorized");
         }
 
-        env.storage()
-            .persistent()
-            .remove(&DataKey::RoleGrant(account.clone(), role.clone()));
+        // Only remove and decrement if the grant actually exists — it may have
+        // already been cleaned up by has_role's lazy expiry removal, and
+        // decrementing again would corrupt RoleCount.
+        let grant_key = DataKey::RoleGrant(account.clone(), role.clone());
+        if env.storage().persistent().has(&grant_key) {
+            env.storage().persistent().remove(&grant_key);
 
-        let count: u32 = env
-            .storage()
-            .instance()
-            .get(&DataKey::RoleCount(role.clone()))
-            .unwrap_or(0);
-        if count > 0 {
-            env.storage()
+            let count: u32 = env
+                .storage()
                 .instance()
-                .set(&DataKey::RoleCount(role), &(count - 1));
+                .get(&DataKey::RoleCount(role.clone()))
+                .unwrap_or(0);
+            if count > 0 {
+                env.storage()
+                    .instance()
+                    .set(&DataKey::RoleCount(role), &(count - 1));
+            }
         }
     }
 
