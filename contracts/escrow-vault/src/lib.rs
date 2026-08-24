@@ -235,12 +235,14 @@ impl EscrowVaultContract {
             released_amount: 0,
             refunded_amount: 0,
             state: EscrowState::Locked,
-            time_lock_until: now + time_lock_duration,
+            time_lock_until: now
+                .checked_add(time_lock_duration)
+                .expect("time_lock_until overflow"),
             performance_threshold,
             created_at: now,
             locked_at: Some(now),
             released_at: None,
-            expires_at: now + expires_in,
+            expires_at: now.checked_add(expires_in).expect("expires_at overflow"),
         };
 
         let _ttl_key = DataKey::Escrow(escrow_id);
@@ -327,8 +329,11 @@ impl EscrowVaultContract {
             .get(&DataKey::Escrow(escrow_id))
             .expect("escrow not found");
 
-        if escrow.state == EscrowState::Released {
-            panic!("already released");
+        match escrow.state {
+            EscrowState::Released | EscrowState::Refunded | EscrowState::Disputed => {
+                panic!("escrow is not in an approvable state");
+            }
+            _ => {}
         }
 
         let approval = EscrowApproval {
@@ -482,6 +487,11 @@ impl EscrowVaultContract {
             .get(&DataKey::Escrow(escrow_id))
             .expect("escrow not found");
 
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if caller != escrow.depositor && caller != admin {
+            panic!("only the depositor or admin can trigger a refund");
+        }
+
         let now = env.ledger().timestamp();
         if now < escrow.expires_at {
             panic!("escrow not yet expired");
@@ -498,7 +508,7 @@ impl EscrowVaultContract {
         let refund = escrow.locked_amount;
 
         escrow.locked_amount = 0;
-        escrow.refunded_amount = refund;
+        escrow.refunded_amount += refund;
         escrow.state = EscrowState::Refunded;
 
         let _ttl_key = DataKey::Escrow(escrow_id);
@@ -780,6 +790,10 @@ impl EscrowVaultContract {
 
     pub fn accept_admin(env: Env, new_admin: Address) {
         pulsar_common_admin::accept_admin(&env, &DataKey::Admin, &DataKey::PendingAdmin, new_admin);
+    }
+
+    pub fn cancel_admin_proposal(env: Env, current_admin: Address) {
+        pulsar_common_admin::cancel_admin_proposal(&env, &DataKey::Admin, &DataKey::PendingAdmin, current_admin);
     }
 }
 

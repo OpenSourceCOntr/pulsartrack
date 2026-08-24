@@ -254,6 +254,13 @@ impl PayoutAutomationContract {
         );
     }
 
+    pub fn fund_payouts(env: Env, sender: Address, amount: i128) {
+        sender.require_auth();
+        let token: Address = env.storage().instance().get(&DataKey::TokenAddress).unwrap();
+        token::Client::new(&env, &token).transfer(&sender, &env.current_contract_address(), &amount);
+    }
+
+
     pub fn add_publisher_earnings(env: Env, admin: Address, publisher: Address, amount: i128) {
         env.storage()
             .instance()

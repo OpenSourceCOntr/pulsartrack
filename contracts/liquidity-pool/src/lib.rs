@@ -189,7 +189,10 @@ impl LiquidityPoolContract {
         if total_shares == 0 {
             panic!("no shares in pool");
         }
-        let amount = (shares * pool.total_liquidity) / total_shares;
+        let amount = shares
+            .checked_mul(pool.total_liquidity)
+            .expect("share redemption calculation overflows i128")
+            / total_shares;
         let available = pool.total_liquidity - pool.total_borrowed;
 
         if amount > available {
@@ -237,6 +240,12 @@ impl LiquidityPoolContract {
 
         if duration_secs == 0 {
             panic!("duration_secs must be greater than zero");
+        }
+
+        // Reject unreasonably long loan durations (max 1 year = 31,557,600 seconds)
+        const MAX_DURATION_SECS: u64 = 31_557_600;
+        if duration_secs > MAX_DURATION_SECS {
+            panic!("duration_secs exceeds maximum allowed loan duration");
         }
 
         if env

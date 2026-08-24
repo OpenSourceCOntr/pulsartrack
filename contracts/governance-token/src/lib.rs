@@ -504,7 +504,7 @@ impl GovernanceTokenContract {
             let _ttl_key = DataKey::DelegatedPower(delegation.delegate);
             env.storage()
                 .persistent()
-                .set(&_ttl_key, &(delegate_power - amount));
+                .set(&_ttl_key, &delegate_power.saturating_sub(amount));
             env.storage().persistent().extend_ttl(
                 &_ttl_key,
                 PERSISTENT_LIFETIME_THRESHOLD,
@@ -550,7 +550,7 @@ impl GovernanceTokenContract {
                 .persistent()
                 .get(&DataKey::DelegatedPower(old_delegation.delegate.clone()))
                 .unwrap_or(0);
-            let new_old_power = old_delegate_power - delegator_balance;
+            let new_old_power = old_delegate_power.saturating_sub(delegator_balance);
             let _ttl_key = DataKey::DelegatedPower(old_delegation.delegate);
             env.storage()
                 .persistent()
@@ -618,7 +618,7 @@ impl GovernanceTokenContract {
                 .persistent()
                 .get(&DataKey::DelegatedPower(delegation_info.delegate.clone()))
                 .unwrap_or(0);
-            let new_power = delegate_power - delegator_balance;
+            let new_power = delegate_power.saturating_sub(delegator_balance);
             let _ttl_key = DataKey::DelegatedPower(delegation_info.delegate);
             env.storage()
                 .persistent()
@@ -672,6 +672,72 @@ impl GovernanceTokenContract {
             .get(&DataKey::Delegation(delegator))
     }
 
+    /// Take a voting snapshot for a voter at a given ledger sequence.
+    /// Stores the voter's own balance plus any delegated power they hold
+    /// at that point in time. Governance-dao should use this snapshot
+    /// balance when a proposal is being voted on to prevent flash-loan attacks.
+    pub fn take_snapshot(env: Env, voter: Address, ledger_sequence: u32) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        voter.require_auth();
+
+        // Only allow snapshotting exactly at the current ledger to prevent retroactive flash loans
+        if ledger_sequence != env.ledger().sequence() {
+            panic!("snapshot ledger must match the current ledger");
+        }
+
+        let own_balance: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Balance(voter.clone()))
+            .unwrap_or(0);
+        let delegated_power: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::DelegatedPower(voter.clone()))
+            .unwrap_or(0);
+
+        // If the voter has delegated their power away, snapshot as 0
+        let delegation = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Delegation>(&DataKey::Delegation(voter.clone()));
+        let snapshot_power = if delegation.is_some() {
+            0i128
+        } else {
+            own_balance + delegated_power
+        };
+
+        let key = DataKey::VotingSnapshot(voter.clone(), ledger_sequence);
+        env.storage().persistent().set(&key, &snapshot_power);
+        env.storage().persistent().extend_ttl(
+            &key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+
+        env.events().publish(
+            (symbol_short!("snapshot"),),
+            (voter, ledger_sequence, snapshot_power),
+        );
+    }
+
+    /// Retrieve a previously taken voting snapshot.
+    /// Returns None if no snapshot exists for this voter at the given ledger.
+    pub fn get_voting_snapshot(
+        env: Env,
+        voter: Address,
+        ledger_sequence: u32,
+    ) -> Option<i128> {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        env.storage()
+            .persistent()
+            .get(&DataKey::VotingSnapshot(voter, ledger_sequence))
+    }
+
     pub fn propose_admin(env: Env, current_admin: Address, new_admin: Address) {
         pulsar_common_admin::propose_admin(
             &env,
@@ -684,6 +750,10 @@ impl GovernanceTokenContract {
 
     pub fn accept_admin(env: Env, new_admin: Address) {
         pulsar_common_admin::accept_admin(&env, &DataKey::Admin, &DataKey::PendingAdmin, new_admin);
+    }
+
+    pub fn cancel_admin_proposal(env: Env, current_admin: Address) {
+        pulsar_common_admin::cancel_admin_proposal(&env, &DataKey::Admin, &DataKey::PendingAdmin, current_admin);
     }
 }
 

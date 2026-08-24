@@ -130,6 +130,7 @@ impl AnalyticsAggregatorContract {
                 last_updated: 0,
             });
 
+        let is_new_campaign = analytics.total_impressions == 0;
         analytics.total_impressions += 1;
         analytics.total_spend += spend;
         analytics.last_updated = env.ledger().timestamp();
@@ -188,6 +189,9 @@ impl AnalyticsAggregatorContract {
 
         // Update global stats
         let mut global: GlobalStats = env.storage().instance().get(&DataKey::GlobalStats).unwrap();
+        if is_new_campaign {
+            global.total_campaigns += 1;
+        }
         global.total_impressions += 1;
         global.total_spend += spend;
         global.last_updated = env.ledger().timestamp();

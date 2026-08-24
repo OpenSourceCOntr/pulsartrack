@@ -93,6 +93,35 @@ fn test_remove_member() {
 }
 
 #[test]
+fn test_segment_member_count_stays_in_sync() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin) = setup(&env);
+    let creator = Address::generate(&env);
+    let sid = c.create_segment(
+        &creator,
+        &s(&env, "Segment"),
+        &s(&env, "Desc"),
+        &s(&env, "QmC"),
+        &true,
+    );
+    assert_eq!(c.get_segment(&sid).unwrap().member_count, 0);
+
+    let m1 = Address::generate(&env);
+    let m2 = Address::generate(&env);
+    c.add_member(&admin, &sid, &m1, &75u32);
+    assert_eq!(c.get_segment(&sid).unwrap().member_count, 1);
+    c.add_member(&admin, &sid, &m2, &50u32);
+    assert_eq!(c.get_segment(&sid).unwrap().member_count, 2);
+    assert_eq!(c.get_member_count(&sid), 2);
+
+    c.remove_member(&admin, &sid, &m1);
+    let seg = c.get_segment(&sid).unwrap();
+    assert_eq!(seg.member_count, 1);
+    assert_eq!(c.get_member_count(&sid), seg.member_count);
+}
+
+#[test]
 fn test_is_member_false() {
     let env = Env::default();
     env.mock_all_auths();

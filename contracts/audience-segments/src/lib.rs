@@ -123,7 +123,7 @@ impl AudienceSegmentsContract {
         admin.require_auth();
         let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
 
-        let segment: Segment = env
+        let mut segment: Segment = env
             .storage()
             .persistent()
             .get(&DataKey::Segment(segment_id))
@@ -169,6 +169,17 @@ impl AudienceSegmentsContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        // Keep the segment record's member_count in sync
+        segment.member_count = count + 1;
+        segment.last_updated = env.ledger().timestamp();
+        let _ttl_key = DataKey::Segment(segment_id);
+        env.storage().persistent().set(&_ttl_key, &segment);
+        env.storage().persistent().extend_ttl(
+            &_ttl_key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
     }
 
     pub fn remove_member(env: Env, admin: Address, segment_id: u64, member: Address) {
@@ -182,7 +193,7 @@ impl AudienceSegmentsContract {
             panic!("address is not a member of this segment");
         }
 
-        let segment: Segment = env
+        let mut segment: Segment = env
             .storage()
             .persistent()
             .get(&DataKey::Segment(segment_id))
@@ -210,6 +221,17 @@ impl AudienceSegmentsContract {
                 PERSISTENT_BUMP_AMOUNT,
             );
         }
+
+        // Keep the segment record's member_count in sync
+        segment.member_count = count.saturating_sub(1);
+        segment.last_updated = env.ledger().timestamp();
+        let _ttl_key = DataKey::Segment(segment_id);
+        env.storage().persistent().set(&_ttl_key, &segment);
+        env.storage().persistent().extend_ttl(
+            &_ttl_key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
     }
 
     pub fn is_member(env: Env, segment_id: u64, member: Address) -> bool {

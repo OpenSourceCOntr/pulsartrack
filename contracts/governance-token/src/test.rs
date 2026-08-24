@@ -229,3 +229,37 @@ fn test_mint_supply_overflow_panics() {
     c.mint(&admin, &user, &MAX_SUPPLY);
     c.mint(&admin, &user, &i128::MAX);
 }
+
+#[test]
+fn test_take_snapshot_and_get() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin) = setup(&env);
+    let user = Address::generate(&env);
+    c.mint(&admin, &user, &500i128);
+    
+    env.ledger().with_mut(|li| {
+        li.sequence_number = 100;
+    });
+    
+    c.take_snapshot(&user, &100u32);
+    
+    assert_eq!(c.get_voting_snapshot(&user, &100u32), Some(500));
+}
+
+#[test]
+#[should_panic(expected = "snapshot ledger must match the current ledger")]
+fn test_take_snapshot_retroactive_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin) = setup(&env);
+    let user = Address::generate(&env);
+    c.mint(&admin, &user, &500i128);
+    
+    env.ledger().with_mut(|li| {
+        li.sequence_number = 105;
+    });
+    
+    // Attacker tries to snapshot for ledger 100 while current is 105
+    c.take_snapshot(&user, &100u32);
+}

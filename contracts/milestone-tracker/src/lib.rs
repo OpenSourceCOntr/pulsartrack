@@ -98,7 +98,8 @@ impl MilestoneTrackerContract {
         }
 
         let now = env.ledger().timestamp();
-        let deadline = now + duration_secs;
+        let deadline = now.checked_add(duration_secs)
+            .expect("milestone deadline timestamp overflows u64");
 
         let counter: u64 = env
             .storage()
@@ -215,6 +216,11 @@ impl MilestoneTrackerContract {
             panic!("unauthorized: only advertiser or admin can dispute");
         }
 
+        match milestone.status {
+            MilestoneStatus::Pending | MilestoneStatus::InProgress => {}
+            _ => panic!("milestone cannot be disputed in its current status"),
+        }
+
         milestone.status = MilestoneStatus::Disputed;
         let _ttl_key = DataKey::Milestone(milestone_id);
         env.storage().persistent().set(&_ttl_key, &milestone);
@@ -241,6 +247,10 @@ impl MilestoneTrackerContract {
             .get(&DataKey::Milestone(milestone_id))
             .expect("milestone not found");
 
+        if milestone.status != MilestoneStatus::Disputed {
+            panic!("can only resolve a Disputed milestone");
+        }
+
         milestone.status = if achieved {
             MilestoneStatus::Achieved
         } else {
@@ -263,6 +273,55 @@ impl MilestoneTrackerContract {
         env.storage()
             .persistent()
             .get(&DataKey::Milestone(milestone_id))
+    }
+
+    /// Permissionless function to mark an expired milestone as Missed.
+    /// Anyone can call this once the deadline has passed and the milestone
+    /// is not already finalized, unblocking downstream logic when the oracle
+    /// is offline or throttled.
+    pub fn mark_missed(env: Env, milestone_id: u64) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+
+        let mut milestone: Milestone = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Milestone(milestone_id))
+            .expect("not found");
+
+        if milestone.status == MilestoneStatus::Achieved
+            || milestone.status == MilestoneStatus::Missed
+        {
+            panic!("already finalized");
+        }
+
+        if env.ledger().timestamp() <= milestone.deadline {
+            panic!("deadline has not passed");
+        }
+
+        milestone.status = MilestoneStatus::Missed;
+        let _ttl_key = DataKey::Milestone(milestone_id);
+        env.storage().persistent().set(&_ttl_key, &milestone);
+        env.storage().persistent().extend_ttl(
+            &_ttl_key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+    }
+
+    pub fn set_oracle(env: Env, admin: Address, new_oracle: Address) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        admin.require_auth();
+        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if admin != stored_admin {
+            panic!("unauthorized");
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::OracleAddress, &new_oracle);
     }
 
     pub fn get_campaign_milestone_count(env: Env, campaign_id: u64) -> u64 {

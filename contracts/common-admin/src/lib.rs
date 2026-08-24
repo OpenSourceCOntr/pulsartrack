@@ -1,6 +1,22 @@
 #![no_std]
 use soroban_sdk::{Address, Env, IntoVal, TryFromVal, Val};
 
+pub fn cancel_admin_proposal<K>(env: &Env, admin_key: &K, pending_key: &K, current_admin: Address)
+where
+    K: IntoVal<Env, Val> + TryFromVal<Env, Val> + Clone,
+{
+    current_admin.require_auth();
+    let stored: Address = env
+        .storage()
+        .instance()
+        .get(admin_key)
+        .expect("not initialized");
+    if current_admin != stored {
+        panic!("unauthorized");
+    }
+    env.storage().instance().remove(pending_key);
+}
+
 pub fn propose_admin<K>(
     env: &Env,
     admin_key: &K,
