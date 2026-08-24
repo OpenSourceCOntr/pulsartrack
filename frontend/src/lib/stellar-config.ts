@@ -68,7 +68,7 @@ export const CONTRACT_IDS = {
  */
 function validateContractIds() {
   const missing = Object.entries(CONTRACT_IDS)
-    .filter(([_, id]) => !id)
+    .filter(([, id]) => !id)
     .map(([name]) => name);
 
   if (missing.length > 0) {

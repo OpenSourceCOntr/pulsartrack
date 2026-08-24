@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Subscription } from '@/types/contracts';
 import { clsx } from 'clsx';
 
@@ -17,6 +18,13 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 export function SubscriptionStatus({ subscription, onCancel, onRenew }: SubscriptionStatusProps) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
   if (!subscription) {
     return (
       <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 text-center">
@@ -26,7 +34,6 @@ export function SubscriptionStatus({ subscription, onCancel, onRenew }: Subscrip
     );
   }
 
-  const now = Date.now();
   const expiresMs = Number(subscription.expires_at) * 1000;
   const expiresDate = new Date(expiresMs);
   const isExpired = expiresMs <= now;

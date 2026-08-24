@@ -67,7 +67,7 @@ export function CampaignForm({ onSuccess, onCancel }: CampaignFormProps) {
     handleSubmit,
     reset,
     watch,
-    formState: { errors, isValid },
+    formState: { errors },
   } = useForm<CampaignFormData>({
     resolver: zodResolver(campaignSchema),
     mode: "onTouched",
@@ -117,8 +117,10 @@ export function CampaignForm({ onSuccess, onCancel }: CampaignFormProps) {
 
       onSuccess?.(campaignId);
       reset();
-    } catch (err: any) {
-      setSubmitError(err?.message || "Failed to create campaign");
+    } catch (err: unknown) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Failed to create campaign",
+      );
     }
   };
 

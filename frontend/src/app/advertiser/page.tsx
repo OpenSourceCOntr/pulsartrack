@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { PlusCircle, BarChart3, Settings, DollarSign, TrendingUp, Eye, MousePointer } from 'lucide-react';
+import { PlusCircle, BarChart3, DollarSign, TrendingUp, Eye, MousePointer } from 'lucide-react';
 import { useWalletStore } from '@/store/wallet-store';
 import { WalletConnectButton } from '@/components/wallet/WalletModal';
 import {
@@ -12,6 +12,8 @@ import {
   AdvertiserCampaign,
 } from '@/hooks/useContract';
 import { formatXlm, formatNumber } from '@/lib/display-utils';
+
+type AdvertiserTab = 'campaigns' | 'create' | 'analytics';
 
 interface CampaignForm {
   title: string;
@@ -45,12 +47,12 @@ export default function AdvertiserPage() {
   const { data: stats, isLoading: isStatsLoading } = useAdvertiserStats(
     address as string,
   );
-  const { data: campaignCount, isLoading: isCountLoading } = useCampaignCount();
+  const { data: campaignCount } = useCampaignCount();
   const { data: campaigns, isLoading: isCampaignsLoading } =
     useAdvertiserCampaigns(address as string, Number(campaignCount));
 
   const [form, setForm] = useState<CampaignForm>(EMPTY_FORM);
-  const [activeTab, setActiveTab] = useState<'campaigns' | 'create' | 'analytics'>('campaigns');
+  const [activeTab, setActiveTab] = useState<AdvertiserTab>('campaigns');
   const errors: Record<string, string[]> = {};
 
   if (!isConnected) {
@@ -172,14 +174,14 @@ export default function AdvertiserPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-            {[
+            {([
               { id: "campaigns", label: "My Campaigns", icon: BarChart3 },
               { id: "create", label: "Create Campaign", icon: PlusCircle },
               { id: "analytics", label: "Analytics", icon: TrendingUp },
-            ].map(({ id, label, icon: Icon }) => (
+            ] as Array<{ id: AdvertiserTab; label: string; icon: typeof BarChart3 }>).map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                onClick={() => setActiveTab(id as any)}
+                onClick={() => setActiveTab(id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === id
                     ? "bg-white text-indigo-600 shadow-sm"

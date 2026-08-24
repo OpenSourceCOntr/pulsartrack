@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Auction } from '@/types/contracts';
 import { formatAddress } from '@/lib/display-utils';
 import { stroopsToXlm } from '@/lib/stellar-config';
@@ -11,7 +12,13 @@ interface AuctionCardProps {
 }
 
 function AuctionStatus({ status, endTime }: { status: string; endTime: number | bigint }) {
-  const now = Math.floor(Date.now() / 1000);
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const timeLeft = Number(endTime) - now;
   const isExpiringSoon = timeLeft > 0 && timeLeft < 300; // < 5 min
 
@@ -39,7 +46,13 @@ function AuctionStatus({ status, endTime }: { status: string; endTime: number | 
 }
 
 function Countdown({ endTime }: { endTime: number | bigint }) {
-  const now = Math.floor(Date.now() / 1000);
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const diff = Number(endTime) - now;
 
   if (diff <= 0) return <span className="text-gray-500 text-xs">Ended</span>;

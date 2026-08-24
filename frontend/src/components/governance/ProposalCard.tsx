@@ -67,7 +67,6 @@ export function ProposalCard({ proposal, onVote, isVoting, userVote }: ProposalC
     ? ((Number(proposal.votes_abstain) / Number(total)) * 100).toFixed(1)
     : '0.0';
   const isActive = proposal.status === 'Active';
-  const deadline = new Date(Number(proposal.voting_ends_at) * 1000);
   const now = Date.now();
   const timeLeft = Number(proposal.voting_ends_at) * 1000 - now;
   const daysLeft = Math.max(0, Math.floor(timeLeft / 86400000));

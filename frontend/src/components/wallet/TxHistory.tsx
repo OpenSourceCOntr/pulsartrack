@@ -30,11 +30,17 @@ interface TxHistoryProps {
 export function TxHistory({ isOpen, onClose }: TxHistoryProps) {
   const { transactions, clearOldTransactions } = useTransactionStore();
   const [pollingTxHash, setPollingTxHash] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     // Clean up old transactions when component mounts
     clearOldTransactions(30);
   }, [clearOldTransactions]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleRetryPoll = async (txHash: string) => {
     setPollingTxHash(txHash);
@@ -82,12 +88,12 @@ export function TxHistory({ isOpen, onClose }: TxHistoryProps) {
     return labels[type];
   };
 
-  const formatTimestamp = (timestamp: number) => {
+  const formatTimestamp = (timestamp: number, now: number) => {
     // Stellar blockchain timestamps are Unix seconds; Date.now() is ms.
     // Normalise: values below 1e12 are seconds, convert to ms.
     const ms = normalizeTimestampToMs(timestamp);
     const date = new Date(ms);
-    const diff = Date.now() - ms;
+    const diff = now - ms;
 
     // Less than 1 minute
     if (diff < 60000) return "Just now";
@@ -171,7 +177,7 @@ export function TxHistory({ isOpen, onClose }: TxHistoryProps) {
                             {tx.description}
                           </p>
                           <p className="text-xs text-gray-400 mt-1">
-                            {formatTimestamp(tx.timestamp)}
+                            {formatTimestamp(tx.timestamp, now)}
                           </p>
                           {tx.error && (
                             <p className="text-xs text-red-600 mt-1">

@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import type { StateStorage } from "zustand/middleware";
 import { isWalletConnected, getWalletAddress, verifyNetwork, getFreighterNetworkLabel } from "../lib/wallet";
 
 interface WalletStore {
@@ -24,7 +25,7 @@ interface WalletStore {
 
 export const useWalletStore = create<WalletStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       address: null,
       isConnected: false,
       network: "testnet",
@@ -73,7 +74,7 @@ export const useWalletStore = create<WalletStore>()(
               getItem: () => null,
               setItem: () => {},
               removeItem: () => {},
-            } as any),
+            } satisfies StateStorage),
       ),
       // Issue #368 — set _hydrated=true once Zustand has read localStorage.
       // Components can gate rendering on this flag instead of using a local

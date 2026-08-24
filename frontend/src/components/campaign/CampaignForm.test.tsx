@@ -17,7 +17,7 @@ describe('CampaignForm', () => {
         vi.mocked(useCreateCampaign).mockReturnValue({
             createCampaign: mockCreateCampaign,
             isPending: false,
-        } as any);
+        } as Partial<ReturnType<typeof useCreateCampaign>> as ReturnType<typeof useCreateCampaign>);
     });
 
     it('should show error if title is missing', async () => {

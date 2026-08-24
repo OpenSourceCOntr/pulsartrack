@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 // Issue #368 — _hydrated replaces the local `mounted` pattern
 import { Menu, X, Zap, History, AlertTriangle, Moon, Sun, Monitor } from "lucide-react";
 import { useWalletStore } from "../store/wallet-store";
@@ -18,8 +19,10 @@ export function Header() {
   const { getPendingTransactions } = useTransactionStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [txHistoryOpen, setTxHistoryOpen] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
   const { theme, setTheme } = useThemeStore();
+
+  // Derived from the (reactive) transaction store; no need to store in state.
+  const pendingCount = _hydrated ? getPendingTransactions().length : 0;
 
   const cycleTheme = () => {
     const order: ThemeMode[] = ["light", "dark", "system"];
@@ -46,12 +49,6 @@ export function Header() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (_hydrated) {
-      setPendingCount(getPendingTransactions().length);
-    }
-  }, [_hydrated, getPendingTransactions]);
-
   if (!_hydrated) return null;
 
   return (
@@ -70,23 +67,23 @@ export function Header() {
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-8">
-              <a href="/" className="flex items-center gap-2">
+              <Link href="/" className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-cyan-500 rounded-lg flex items-center justify-center">
                   <Zap className="w-5 h-5 text-white" />
                 </div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   PulsarTrack
                 </h1>
-              </a>
+              </Link>
 
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center space-x-6">
-                <a
+                <Link
                   href="/"
                   className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium"
                 >
                   Home
-                </a>
+                </Link>
                 <a
                   href="/advertiser"
                   className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium"

@@ -32,7 +32,7 @@ describe('BidForm', () => {
         vi.mocked(usePlaceBid).mockReturnValue({
             placeBid: mockMutateAsync,
             isPending: false,
-        } as any);
+        } as Partial<ReturnType<typeof usePlaceBid>> as ReturnType<typeof usePlaceBid>);
     });
 
     it('should render floor price correctly', () => {
@@ -45,7 +45,6 @@ describe('BidForm', () => {
 
         const bidInput = screen.getByLabelText(/Bid Amount/i);
         const campaignInput = screen.getByLabelText(/Campaign ID/i);
-        const submitButton = screen.getByText('Submit Bid');
 
         fireEvent.change(bidInput, { target: { value: '0.5' } });
         fireEvent.change(campaignInput, { target: { value: '10' } });

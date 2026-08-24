@@ -27,7 +27,7 @@ export type EventType =
 
 export interface PulsarEvent {
   type: EventType;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   timestamp: number;
   txHash?: string;
 }

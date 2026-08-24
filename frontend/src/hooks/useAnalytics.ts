@@ -23,29 +23,31 @@ export function useAnalyticsTimeseries({ campaignIds, timeframe }: UseAnalyticsT
   useEffect(() => {
     const controller = new AbortController();
 
-    setLoading(true);
-    setError(null);
+    async function load() {
+      setLoading(true);
+      setError(null);
 
-    // Replace with actual API endpoint or contract call
-    fetch(`/api/analytics/timeseries?campaignIds=${campaignIdsKey}&timeframe=${timeframe}`, {
-      signal: controller.signal,
-    })
-      .then(res => {
+      try {
+        // Replace with actual API endpoint or contract call
+        const res = await fetch(
+          `/api/analytics/timeseries?campaignIds=${campaignIdsKey}&timeframe=${timeframe}`,
+          { signal: controller.signal }
+        );
         if (!res.ok) throw new Error('Failed to fetch analytics timeseries');
-        return res.json();
-      })
-      .then((result: AnalyticsTimeseriesPoint[]) => {
+        const result: AnalyticsTimeseriesPoint[] = await res.json();
         setData(result);
         setLoading(false);
-      })
-      .catch(err => {
-        if (err.name === 'AbortError') {
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
           return;
         }
 
-        setError(err.message);
+        setError(err instanceof Error ? err.message : 'Failed to fetch analytics timeseries');
         setLoading(false);
-      });
+      }
+    }
+
+    load();
 
     return () => {
       controller.abort();

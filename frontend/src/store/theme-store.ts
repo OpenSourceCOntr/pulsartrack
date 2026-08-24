@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import type { StateStorage } from "zustand/middleware";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -25,7 +26,7 @@ export const useThemeStore = create<ThemeStore>()(
               getItem: () => null,
               setItem: () => {},
               removeItem: () => {},
-            } as any)
+            } satisfies StateStorage)
       ),
     }
   )

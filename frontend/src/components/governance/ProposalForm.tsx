@@ -29,8 +29,8 @@ export function ProposalForm({ onSubmit, onCancel, requiredBalance = 1000 }: Pro
       await onSubmit?.({ title, description, durationDays });
       setTitle('');
       setDescription('');
-    } catch (err: any) {
-      setError(err?.message || 'Failed to submit proposal');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit proposal');
     } finally {
       setIsPending(false);
     }

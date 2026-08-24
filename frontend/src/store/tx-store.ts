@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import type { StateStorage } from "zustand/middleware";
 
 export type TransactionStatus = "pending" | "success" | "failed" | "timeout";
 
@@ -21,7 +22,7 @@ export interface Transaction {
   status: TransactionStatus;
   timestamp: number;
   description: string;
-  result?: any;
+  result?: unknown;
   error?: string;
 }
 
@@ -88,7 +89,7 @@ export const useTransactionStore = create<TransactionStore>()(
               getItem: () => null,
               setItem: () => {},
               removeItem: () => {},
-            } as any),
+            } satisfies StateStorage),
       ),
       // Issue #368 — signal rehydration completion to eliminate header flicker.
       onRehydrateStorage: () => (state) => {

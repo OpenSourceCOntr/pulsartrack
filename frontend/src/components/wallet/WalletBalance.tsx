@@ -23,8 +23,8 @@ export function WalletBalance() {
         return;
       }
       if (!res.ok) throw new Error('Failed to load balance');
-      const data = await res.json();
-      const xlm = data.balances?.find((b: any) => b.asset_type === 'native');
+      const data: { balances?: Array<{ asset_type: string; balance: string }> } = await res.json();
+      const xlm = data.balances?.find((b) => b.asset_type === 'native');
       setXlmBalance(xlm ? parseFloat(xlm.balance).toFixed(2) : '0.00');
     } catch {
       setXlmBalance(null);

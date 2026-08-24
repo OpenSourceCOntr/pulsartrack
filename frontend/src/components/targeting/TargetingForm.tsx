@@ -98,8 +98,8 @@ export function TargetingForm({ initial, onSave, isSaving }: TargetingFormProps)
       await onSave?.(data as TargetingConfig);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err: any) {
-      setSubmitError(err?.message || 'Failed to save targeting settings');
+    } catch (err: unknown) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save targeting settings');
     } finally {
       submitLockedRef.current = false;
       setIsPending(false);

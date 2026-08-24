@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import {
   Vote,
-  Plus,
   Clock,
   CheckCircle,
   XCircle,
@@ -21,6 +20,8 @@ import {
 import { stroopsToXlm } from '@/lib/stellar-config';
 
 type ProposalStatus = 'Active' | 'Passed' | 'Rejected' | 'Executed';
+
+type GovernanceTab = 'proposals' | 'create' | 'my_votes';
 
 const STATUS_COLORS: Record<ProposalStatus, string> = {
   Active: 'bg-blue-100 text-blue-700',
@@ -41,9 +42,7 @@ function toVotePercentage(votes: bigint, total: bigint) {
 
 export default function GovernancePage() {
   const { address, isConnected } = useWalletStore();
-  const [activeTab, setActiveTab] = useState<
-    'proposals' | 'create' | 'my_votes'
-  >('proposals');
+  const [activeTab, setActiveTab] = useState<GovernanceTab>('proposals');
   const [proposalData, setProposalData] = useState({
     title: '',
     description: '',
@@ -133,14 +132,14 @@ export default function GovernancePage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-            {[
+            {([
               { id: 'proposals', label: 'Proposals' },
               { id: 'create', label: 'Create Proposal' },
               { id: 'my_votes', label: 'My Votes' },
-            ].map(({ id, label }) => (
+            ] as Array<{ id: GovernanceTab; label: string }>).map(({ id, label }) => (
               <button
                 key={id}
-                onClick={() => setActiveTab(id as any)}
+                onClick={() => setActiveTab(id)}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === id
                     ? 'bg-white text-indigo-600 shadow-sm'

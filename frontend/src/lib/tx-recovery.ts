@@ -1,6 +1,6 @@
 "use client";
 
-import type { rpc } from "@stellar/stellar-sdk";
+import type { rpc, xdr } from "@stellar/stellar-sdk";
 import { useTransactionStore } from "../store/tx-store";
 
 async function getSdk() {
@@ -70,7 +70,7 @@ export async function pollTransaction(
   txHash: string,
   maxAttempts: number = 10,
   initialIntervalMs: number = 2000,
-): Promise<{ success: boolean; result?: any; error?: string }> {
+): Promise<{ success: boolean; result?: xdr.ScVal; error?: string }> {
   const { rpc } = await getSdk();
   const server = await getServer();
   const { updateTransaction } = useTransactionStore.getState();
