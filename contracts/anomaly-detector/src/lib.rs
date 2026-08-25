@@ -40,6 +40,20 @@ pub struct AnomalyReport {
     pub resolved_at: Option<u64>,
 }
 
+/// Parameters for reporting an anomaly — groups the per-report fields to keep
+/// `report_anomaly` within clippy's argument-count limit (#751).
+#[contracttype]
+#[derive(Clone)]
+pub struct AnomalyParams {
+    pub anomaly_type: AnomalyType,
+    pub severity: AnomalySeverity,
+    pub description: String,
+    pub metrics_snapshot: String,
+    pub auto_action: bool,
+    pub current_impressions_per_hour: u64,
+    pub current_clicks_per_hour: u64,
+}
+
 #[contracttype]
 #[derive(Clone)]
 pub struct TrafficBaseline {
@@ -197,18 +211,14 @@ impl AnomalyDetectorContract {
         );
     }
 
+    /// Report an anomaly for a campaign. Related fields are bundled in `params`
+    /// to keep the argument count within clippy's `too_many_arguments` limit (#751).
     pub fn report_anomaly(
         env: Env,
         oracle: Address,
         campaign_id: u64,
         publisher: Option<Address>,
-        anomaly_type: AnomalyType,
-        severity: AnomalySeverity,
-        description: String,
-        metrics_snapshot: String,
-        auto_action: bool,
-        current_impressions_per_hour: u64,
-        current_clicks_per_hour: u64,
+        params: AnomalyParams,
     ) -> u64 {
         env.storage()
             .instance()
@@ -230,10 +240,8 @@ impl AnomalyDetectorContract {
             .get(&DataKey::Baseline(campaign_id));
 
         if let Some(b) = baseline {
-            // Calculate threshold multiplier (e.g., 300% = 3.0x)
             let threshold_multiplier = b.spike_threshold_pct as u64;
 
-            // Check if current metrics exceed baseline thresholds
             let impressions_threshold = b
                 .avg_impressions_per_hour
                 .saturating_mul(threshold_multiplier)
@@ -243,9 +251,9 @@ impl AnomalyDetectorContract {
                 .saturating_mul(threshold_multiplier)
                 .saturating_div(100);
 
-            // Validate that at least one metric exceeds the threshold
-            let impressions_exceeded = current_impressions_per_hour > impressions_threshold;
-            let clicks_exceeded = current_clicks_per_hour > clicks_threshold;
+            let impressions_exceeded =
+                params.current_impressions_per_hour > impressions_threshold;
+            let clicks_exceeded = params.current_clicks_per_hour > clicks_threshold;
 
             if !impressions_exceeded && !clicks_exceeded {
                 panic!("metrics do not exceed baseline thresholds");
@@ -261,7 +269,7 @@ impl AnomalyDetectorContract {
 
         // Auto-flag critical publisher anomalies
         if let Some(ref pub_addr) = publisher {
-            if let AnomalySeverity::Critical = severity {
+            if let AnomalySeverity::Critical = params.severity {
                 let _ttl_key = DataKey::FlaggedPublisher(pub_addr.clone());
                 env.storage().persistent().set(&_ttl_key, &true);
                 env.storage().persistent().extend_ttl(
@@ -276,11 +284,11 @@ impl AnomalyDetectorContract {
             report_id,
             campaign_id,
             publisher,
-            anomaly_type,
-            severity,
-            description,
-            metrics_snapshot,
-            auto_action_taken: auto_action,
+            anomaly_type: params.anomaly_type,
+            severity: params.severity,
+            description: params.description,
+            metrics_snapshot: params.metrics_snapshot,
+            auto_action_taken: params.auto_action,
             reported_at: env.ledger().timestamp(),
             resolved: false,
             resolved_at: None,
