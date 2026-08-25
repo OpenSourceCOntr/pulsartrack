@@ -79,13 +79,15 @@ fn test_report_anomaly() {
         &oracle,
         &1u64,
         &Some(publisher.clone()),
-        &AnomalyType::ClickFarming,
-        &AnomalySeverity::Critical,
-        &s(&env, "spike"),
-        &s(&env, "{}"),
-        &true,
-        &4000u64, // current_impressions_per_hour
-        &200u64,  // current_clicks_per_hour
+        &AnomalyParams {
+            anomaly_type: AnomalyType::ClickFarming,
+            severity: AnomalySeverity::Critical,
+            description: s(&env, "spike"),
+            metrics_snapshot: s(&env, "{}"),
+            auto_action: true,
+            current_impressions_per_hour: 4000,
+            current_clicks_per_hour: 200,
+        },
     );
     assert_eq!(c.get_report_count(), 1);
     assert!(c.is_publisher_flagged(&publisher));
@@ -133,13 +135,15 @@ fn test_report_anomaly_below_threshold() {
         &oracle,
         &1u64,
         &Some(publisher.clone()),
-        &AnomalyType::ClickFarming,
-        &AnomalySeverity::Critical,
-        &s(&env, "spike"),
-        &s(&env, "{}"),
-        &true,
-        &2000u64, // current_impressions_per_hour (below threshold)
-        &100u64,  // current_clicks_per_hour (below threshold)
+        &AnomalyParams {
+            anomaly_type: AnomalyType::ClickFarming,
+            severity: AnomalySeverity::Critical,
+            description: s(&env, "spike"),
+            metrics_snapshot: s(&env, "{}"),
+            auto_action: true,
+            current_impressions_per_hour: 2000,
+            current_clicks_per_hour: 100,
+        },
     );
 }
 
@@ -155,13 +159,15 @@ fn test_report_anomaly_no_baseline() {
         &oracle,
         &1u64,
         &Some(publisher.clone()),
-        &AnomalyType::ClickFarming,
-        &AnomalySeverity::Critical,
-        &s(&env, "spike"),
-        &s(&env, "{}"),
-        &true,
-        &4000u64,
-        &200u64,
+        &AnomalyParams {
+            anomaly_type: AnomalyType::ClickFarming,
+            severity: AnomalySeverity::Critical,
+            description: s(&env, "spike"),
+            metrics_snapshot: s(&env, "{}"),
+            auto_action: true,
+            current_impressions_per_hour: 4000,
+            current_clicks_per_hour: 200,
+        },
     );
     assert_eq!(c.get_report_count(), 1);
 }
@@ -183,13 +189,15 @@ fn test_report_anomaly_clicks_exceed_threshold() {
         &oracle,
         &1u64,
         &Some(publisher.clone()),
-        &AnomalyType::ClickFarming,
-        &AnomalySeverity::High,
-        &s(&env, "click spike"),
-        &s(&env, "{}"),
-        &true,
-        &2000u64, // below threshold
-        &200u64,  // exceeds threshold
+        &AnomalyParams {
+            anomaly_type: AnomalyType::ClickFarming,
+            severity: AnomalySeverity::High,
+            description: s(&env, "click spike"),
+            metrics_snapshot: s(&env, "{}"),
+            auto_action: true,
+            current_impressions_per_hour: 2000,
+            current_clicks_per_hour: 200,
+        },
     );
     assert_eq!(c.get_report_count(), 1);
 }
